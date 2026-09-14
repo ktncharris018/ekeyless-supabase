@@ -1,0 +1,148 @@
+import 'package:ekeyless/configs/auth_middleware.dart';
+import 'package:ekeyless/controllers/amigos/amigos_controller.dart';
+import 'package:ekeyless/controllers/auth/login_controller.dart';
+import 'package:ekeyless/controllers/auth/recuperarpassword_controller.dart';
+import 'package:ekeyless/controllers/auth/registro_controller.dart';
+import 'package:ekeyless/controllers/auth/splash_controller.dart';
+import 'package:ekeyless/controllers/candado/candado_ble_controller.dart';
+import 'package:ekeyless/controllers/candado/compartir_acceso_controller.dart';
+import 'package:ekeyless/controllers/configuracion/configuracion_controller.dart';
+import 'package:ekeyless/controllers/notificaciones/notificacion_controller.dart';
+import 'package:ekeyless/views/amigos/vista_amigos.dart';
+import 'package:ekeyless/views/candado/compartir_acceso.dart';
+import 'package:ekeyless/views/candado/vincular_candado.dart';
+import 'package:ekeyless/views/candado/vista_control.dart';
+import 'package:ekeyless/views/candado/vista_lista_candado.dart';
+import 'package:ekeyless/views/notificaciones/notificaciones_view.dart'; // importar el nuevo archivo de la vista
+import 'package:ekeyless/views/auth/login.dart';
+import 'package:ekeyless/views/auth/recuperar_password.dart';
+import 'package:ekeyless/views/auth/registro.dart';
+import 'package:ekeyless/views/auth/splash_page.dart';
+import 'package:ekeyless/views/configuracion/vista_configuracion.dart';
+import 'package:get/get.dart';
+import 'package:ekeyless/controllers/auth/cambiarpassword_controller.dart';
+import 'package:ekeyless/views/auth/cambiar_password.dart';
+
+class AppRoutes {
+  // Rutas públicas
+  static const String splash = '/splash';
+  static const String login = '/login';
+  static const String recuperarContrasena = '/recuperar-contrasena';
+  static const String registro = '/registro';
+  static const String cambiarContrasena = '/cambiar-contrasena';
+
+  // Rutas privadas
+  static const String candado = '/candado';
+  static const String vincularCandado = '/vincular-candado';
+  static const String control = '/control';
+  static const String compartirAcceso = '/compartir-acceso';
+  static const String amigos = '/amigos';
+  static const String notificaciones = '/notificaciones';
+  static const String configuracion = '/configuracion';
+
+  static final routes = [
+    // Rutas públicas
+    GetPage(
+      name: splash,
+      page: () => SplashPage(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() => SplashController());
+      }),
+    ),
+    GetPage(
+      name: login,
+      page: () => LoginPage(),
+      binding: BindingsBuilder(() {
+        Get.delete<LoginController>();
+        Get.lazyPut(() => LoginController());
+      }),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: recuperarContrasena,
+      page: () => RecuperarPasswordPage(),
+      binding: BindingsBuilder(() {
+        Get.delete<RecuperarPasswordController>();
+        Get.lazyPut(() => RecuperarPasswordController());
+      }),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: registro,
+      page: () => RegistroPage(),
+      binding: BindingsBuilder(() {
+        Get.delete<RegistroController>();
+        Get.lazyPut(() => RegistroController());
+      }),
+      middlewares: [AuthMiddleware()],
+    ),
+
+    GetPage(
+      name: cambiarContrasena,
+      page: () => CambiarPasswordPage(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() => CambiarPasswordController());
+      }),
+    ),
+
+    // Rutas protegidas
+    GetPage(
+      name: AppRoutes.candado,
+      page: () => VistaListaCandados(),
+      binding: BindingsBuilder(() {
+        Get.put(CandadoBLEController());
+      }),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: AppRoutes.vincularCandado,
+      page: () => VistaVincularCandado(),
+      binding: BindingsBuilder(() {
+        Get.put(CandadoBLEController());
+      }),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: AppRoutes.control,
+      page: () => VistaControl(),
+      binding: BindingsBuilder(() {
+        Get.put(CandadoBLEController());
+      }),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: AppRoutes.compartirAcceso,
+      page: () => VistaCompartirAcceso(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() => CompartirAccesoController());
+      }),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: amigos,
+      page: () => VistaAmigos(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() => AmigosController());
+      }),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: notificaciones,
+      page:
+          () =>
+              NotificacionesView(), //VistaNotificaciones(), // Usa el nuevo nombre de la vista
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() => NotificacionController());
+      }),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: configuracion,
+      page: () => VistaConfiguracion(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut(() => ConfiguracionController());
+      }),
+      middlewares: [AuthMiddleware()],
+    ),
+  ];
+}
