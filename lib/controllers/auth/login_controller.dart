@@ -1,10 +1,13 @@
 import 'package:ekeyless/routes/app_routes.dart';
 import 'package:ekeyless/services/auth/auth_service.dart';
+import 'package:ekeyless/services/auth/auth_service_exception.dart';
 import 'package:ekeyless/utils/alertas.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class LoginController extends GetxController {
+  LoginController({AuthService? authService}) : authService = authService ?? AuthService();
+
   final formKey = GlobalKey<FormState>();
   final emailCtrl = TextEditingController();
   final passCtrl = TextEditingController();
@@ -12,7 +15,7 @@ class LoginController extends GetxController {
   final RxBool mostrarContrasena = false.obs;
   final RxBool cargando = false.obs;
 
-  final AuthService authService = AuthService();
+  final AuthService authService;
 
   @override
   void onClose() {

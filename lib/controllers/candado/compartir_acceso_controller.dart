@@ -1,12 +1,24 @@
 import 'package:ekeyless/models/candado_model.dart';
 import 'package:ekeyless/models/usuario_model.dart';
+import 'package:ekeyless/services/candado/bluetooth_service.dart';
 import 'package:ekeyless/services/candado/candadoble_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
 class CompartirAccesoController extends GetxController {
-  final CandadoBLEService _service = CandadoBLEService();
+  CompartirAccesoController({
+    required CandadoBLEService service,
+    required BleLockGateway bleGateway,
+  }) : _service = service,
+       _bleGateway = bleGateway;
+
+  final CandadoBLEService _service;
+  final BleLockGateway _bleGateway;
+
+  // Permite que el controlador dependa explícitamente
+  // de la abstracción de comunicación Bluetooth.
+  BleLockGateway get bleGateway => _bleGateway;
 
   // ==================== ESTADO ====================
   final cargando = false.obs;
@@ -14,11 +26,11 @@ class CompartirAccesoController extends GetxController {
   final cargandoInvitados = false.obs;
 
   // ==================== DATOS ====================
-  // *** CAMBIO: Hacer el candado observable ***
   final candadoObs = Rxn<CandadoModel>();
+
   CandadoModel get candado => candadoObs.value!;
   set candado(CandadoModel value) => candadoObs.value = value;
-  //late final CandadoModel candado;
+
   final amigos = <UsuarioModel>[].obs;
   final invitadosPermanentes = <UsuarioModel>[].obs;
   final invitadosTemporales = <Map<String, dynamic>>[].obs;
@@ -31,7 +43,6 @@ class CompartirAccesoController extends GetxController {
 
   // ==================== COMPUTED ====================
 
-  /// Obtiene la fecha y hora de expiración combinadas
   DateTime? get fechaHoraExpiracion {
     final fecha = fechaExpiracion.value;
     final hora = horaExpiracion.value;
@@ -51,35 +62,32 @@ class CompartirAccesoController extends GetxController {
     return fecha;
   }
 
-  /// Verifica si la fecha de expiración es válida
   bool get esFechaExpiracionValida {
     final fechaHora = fechaHoraExpiracion;
     return fechaHora != null && fechaHora.isAfter(DateTime.now());
   }
 
-  /// Formatea la fecha de expiración para mostrar
   String get fechaExpiracionFormateada {
     final fechaHora = fechaHoraExpiracion;
-    if (fechaHora == null) return 'No seleccionada';
+
+    if (fechaHora == null) {
+      return 'No seleccionada';
+    }
 
     return DateFormat('dd/MM/yyyy HH:mm').format(fechaHora);
   }
 
-  /// Lista de amigos que no tienen acceso al candado
   List<UsuarioModel> get amigosDisponibles {
     final idsConAcceso = <String>{};
 
-    // Agregar IDs con acceso permanente
     idsConAcceso.addAll(candado.invitadosPermanentes);
 
-    // Agregar IDs con acceso temporal válido
     for (final invitado in candado.invitadosTemporales) {
       if (invitado.fechaExpiracion.isAfter(DateTime.now())) {
         idsConAcceso.add(invitado.usuarioId);
       }
     }
 
-    // Agregar el dueño
     idsConAcceso.add(candado.dueno);
 
     return amigos.where((amigo) => !idsConAcceso.contains(amigo.id)).toList();
@@ -89,11 +97,10 @@ class CompartirAccesoController extends GetxController {
   void onInit() {
     super.onInit();
 
-    // Obtener el candado de los argumentos
     final argumentos = Get.arguments;
+
     if (argumentos is CandadoModel) {
-      candadoObs.value = argumentos; // *** CAMBIO: Usar observable ***
-      //candado = argumentos;
+      candadoObs.value = argumentos;
       _inicializar();
     } else {
       _mostrarError('Error al cargar información del candado');
@@ -109,10 +116,10 @@ class CompartirAccesoController extends GetxController {
 
   // ==================== GESTIÓN DE AMIGOS ====================
 
-  /// Carga la lista de amigos del usuario actual
   Future<void> cargarAmigos() async {
     try {
       cargandoAmigos.value = true;
+
       final listaAmigos = await _service.obtenerAmigos();
       amigos.assignAll(listaAmigos);
     } catch (e) {
@@ -125,19 +132,14 @@ class CompartirAccesoController extends GetxController {
 
   // ==================== GESTIÓN DE INVITADOS ====================
 
-  /// Carga los invitados existentes del candado
   Future<void> cargarInvitadosExistentes() async {
     try {
       cargandoInvitados.value = true;
 
-      // Limpiar listas
       invitadosPermanentes.clear();
       invitadosTemporales.clear();
 
-      // Cargar invitados permanentes
       await _cargarInvitadosPermanentes();
-
-      // Cargar invitados temporales
       await _cargarInvitadosTemporales();
     } catch (e) {
       _mostrarError('Error al cargar invitados: ${e.toString()}');
@@ -151,6 +153,7 @@ class CompartirAccesoController extends GetxController {
 
     for (final usuarioId in candado.invitadosPermanentes) {
       final usuario = await _service.obtenerUsuarioPorId(usuarioId);
+
       if (usuario != null) {
         permanentes.add(usuario);
       }
@@ -164,6 +167,7 @@ class CompartirAccesoController extends GetxController {
 
     for (final invitado in candado.invitadosTemporales) {
       final usuario = await _service.obtenerUsuarioPorId(invitado.usuarioId);
+
       if (usuario != null) {
         temporales.add({
           'usuario': usuario,
@@ -178,33 +182,27 @@ class CompartirAccesoController extends GetxController {
 
   // ==================== FORMULARIO ====================
 
-  /// Selecciona un amigo para compartir acceso
   void seleccionarAmigo(UsuarioModel? amigo) {
     amigoSeleccionado.value = amigo;
   }
 
-  /// Cambia el tipo de acceso (temporal/permanente)
   void cambiarTipoAcceso(bool temporal) {
     esTemporal.value = temporal;
 
-    // Limpiar fecha si no es temporal
     if (!temporal) {
       fechaExpiracion.value = null;
       horaExpiracion.value = null;
     }
   }
 
-  /// Selecciona la fecha de expiración
   void seleccionarFechaExpiracion(DateTime? fecha) {
     fechaExpiracion.value = fecha;
   }
 
-  /// Selecciona la hora de expiración
   void seleccionarHoraExpiracion(TimeOfDay? hora) {
     horaExpiracion.value = hora;
   }
 
-  /// Limpia el formulario
   void limpiarFormulario() {
     amigoSeleccionado.value = null;
     esTemporal.value = false;
@@ -214,7 +212,6 @@ class CompartirAccesoController extends GetxController {
 
   // ==================== COMPARTIR ACCESO ====================
 
-  /// Comparte el acceso con el amigo seleccionado
   Future<void> compartirAcceso() async {
     if (!_validarFormulario()) return;
 
@@ -228,12 +225,10 @@ class CompartirAccesoController extends GetxController {
         fechaExpiracion: esTemporal.value ? fechaHoraExpiracion : null,
       );
 
-      // *** NUEVA LÍNEA: Actualizar el objeto candado local ***
       await actualizarCandadoLocal();
 
       _mostrarExito('Acceso compartido correctamente');
 
-      // Limpiar formulario y recargar datos
       limpiarFormulario();
       await _inicializar();
     } catch (e) {
@@ -243,18 +238,17 @@ class CompartirAccesoController extends GetxController {
     }
   }
 
-  /// Actualiza el candado desde la base de datos y notifica a la vista
   Future<void> actualizarCandadoLocal() async {
     try {
       final candadoActualizado = await _service.obtenerCandadoPorKey(
         candado.key,
       );
+
       if (candadoActualizado != null) {
-        candadoObs.value =
-            candadoActualizado; // Esto triggerea la actualización de la vista
+        candadoObs.value = candadoActualizado;
       }
     } catch (e) {
-      //print('Error al actualizar candado local: $e');
+      // No se muestra error para no interrumpir el flujo principal.
     }
   }
 
@@ -281,13 +275,12 @@ class CompartirAccesoController extends GetxController {
 
   // ==================== GESTIÓN DE ACCESO EXISTENTE ====================
 
-  /// Revoca el acceso permanente de un usuario
   Future<void> revocarAccesoPermanente(UsuarioModel usuario) async {
     try {
       cargando.value = true;
 
-      // Actualizar el modelo local
       final candadoActual = await _service.obtenerCandadoPorKey(candado.key);
+
       if (candadoActual == null) {
         throw Exception('El candado ya no existe');
       }
@@ -295,6 +288,7 @@ class CompartirAccesoController extends GetxController {
       final invitadosPermanentesActualizados = List<String>.from(
         candadoActual.invitadosPermanentes,
       );
+
       invitadosPermanentesActualizados.remove(usuario.id);
 
       final candadoActualizado = candadoActual.copyWith(
@@ -306,6 +300,7 @@ class CompartirAccesoController extends GetxController {
       await actualizarCandadoLocal();
 
       _mostrarExito('Acceso revocado correctamente');
+
       await _inicializar();
     } catch (e) {
       _mostrarError('Error al revocar acceso: ${e.toString()}');
@@ -314,13 +309,12 @@ class CompartirAccesoController extends GetxController {
     }
   }
 
-  /// Revoca el acceso temporal de un usuario
   Future<void> revocarAccesoTemporal(UsuarioModel usuario) async {
     try {
       cargando.value = true;
 
-      // Actualizar el modelo local
       final candadoActual = await _service.obtenerCandadoPorKey(candado.key);
+
       if (candadoActual == null) {
         throw Exception('El candado ya no existe');
       }
@@ -339,6 +333,7 @@ class CompartirAccesoController extends GetxController {
       await actualizarCandadoLocal();
 
       _mostrarExito('Acceso temporal revocado correctamente');
+
       await _inicializar();
     } catch (e) {
       _mostrarError('Error al revocar acceso temporal: ${e.toString()}');
@@ -347,7 +342,6 @@ class CompartirAccesoController extends GetxController {
     }
   }
 
-  /// Extiende el acceso temporal de un usuario
   Future<void> extenderAccesoTemporal(
     UsuarioModel usuario,
     DateTime nuevaFechaExpiracion,
@@ -359,8 +353,8 @@ class CompartirAccesoController extends GetxController {
         throw Exception('La nueva fecha debe ser futura');
       }
 
-      // Actualizar el modelo local
       final candadoActual = await _service.obtenerCandadoPorKey(candado.key);
+
       if (candadoActual == null) {
         throw Exception('El candado ya no existe');
       }
@@ -373,6 +367,7 @@ class CompartirAccesoController extends GetxController {
                 fechaExpiracion: nuevaFechaExpiracion,
               );
             }
+
             return invitado;
           }).toList();
 
@@ -385,6 +380,7 @@ class CompartirAccesoController extends GetxController {
       await actualizarCandadoLocal();
 
       _mostrarExito('Acceso temporal extendido correctamente');
+
       await _inicializar();
     } catch (e) {
       _mostrarError('Error al extender acceso: ${e.toString()}');
@@ -395,17 +391,14 @@ class CompartirAccesoController extends GetxController {
 
   // ==================== UTILIDADES ====================
 
-  /// Formatea una fecha para mostrar
   String formatearFecha(DateTime fecha) {
     return DateFormat('dd/MM/yyyy HH:mm').format(fecha);
   }
 
-  /// Verifica si un acceso temporal está activo
   bool esAccesoTemporalActivo(DateTime fechaExpiracion) {
     return fechaExpiracion.isAfter(DateTime.now());
   }
 
-  /// Obtiene el texto del estado de un acceso temporal
   String obtenerEstadoAccesoTemporal(DateTime fechaExpiracion) {
     if (esAccesoTemporalActivo(fechaExpiracion)) {
       final diferencia = fechaExpiracion.difference(DateTime.now());
@@ -417,9 +410,9 @@ class CompartirAccesoController extends GetxController {
       } else {
         return 'Expira en ${diferencia.inMinutes} minutos';
       }
-    } else {
-      return 'Expirado';
     }
+
+    return 'Expirado';
   }
 
   void _mostrarError(String mensaje) {
@@ -440,11 +433,5 @@ class CompartirAccesoController extends GetxController {
       backgroundColor: Get.theme.colorScheme.primary,
       colorText: Get.theme.colorScheme.onPrimary,
     );
-  }
-
-  @override
-  void onClose() {
-    // Limpiar recursos si es necesario
-    super.onClose();
   }
 }

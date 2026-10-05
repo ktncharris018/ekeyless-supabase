@@ -1,5 +1,6 @@
 import 'package:ekeyless/configs/auth_middleware.dart';
 import 'package:ekeyless/controllers/amigos/amigos_controller.dart';
+import 'package:ekeyless/controllers/auth/cambiarpassword_controller.dart';
 import 'package:ekeyless/controllers/auth/login_controller.dart';
 import 'package:ekeyless/controllers/auth/recuperarpassword_controller.dart';
 import 'package:ekeyless/controllers/auth/registro_controller.dart';
@@ -8,30 +9,34 @@ import 'package:ekeyless/controllers/candado/candado_ble_controller.dart';
 import 'package:ekeyless/controllers/candado/compartir_acceso_controller.dart';
 import 'package:ekeyless/controllers/configuracion/configuracion_controller.dart';
 import 'package:ekeyless/controllers/notificaciones/notificacion_controller.dart';
+import 'package:ekeyless/services/candado/bluetooth_service.dart';
+import 'package:ekeyless/services/candado/candadoble_service.dart';
+import 'package:ekeyless/services/notificaciones/notificacion_service.dart';
 import 'package:ekeyless/views/amigos/vista_amigos.dart';
-import 'package:ekeyless/views/candado/compartir_acceso.dart';
-import 'package:ekeyless/views/candado/vincular_candado.dart';
-import 'package:ekeyless/views/candado/vista_control.dart';
-import 'package:ekeyless/views/candado/vista_lista_candado.dart';
-import 'package:ekeyless/views/notificaciones/notificaciones_view.dart'; // importar el nuevo archivo de la vista
+import 'package:ekeyless/views/auth/cambiar_password.dart';
 import 'package:ekeyless/views/auth/login.dart';
 import 'package:ekeyless/views/auth/recuperar_password.dart';
 import 'package:ekeyless/views/auth/registro.dart';
 import 'package:ekeyless/views/auth/splash_page.dart';
+import 'package:ekeyless/views/candado/compartir_acceso.dart';
+import 'package:ekeyless/views/candado/vincular_candado.dart';
+import 'package:ekeyless/views/candado/vista_control.dart';
+import 'package:ekeyless/views/candado/vista_lista_candado.dart';
 import 'package:ekeyless/views/configuracion/vista_configuracion.dart';
+import 'package:ekeyless/views/notificaciones/notificaciones_view.dart';
 import 'package:get/get.dart';
-import 'package:ekeyless/controllers/auth/cambiarpassword_controller.dart';
-import 'package:ekeyless/views/auth/cambiar_password.dart';
 
 class AppRoutes {
-  // Rutas públicas
+  // ==================== RUTAS PÚBLICAS ====================
+
   static const String splash = '/splash';
   static const String login = '/login';
   static const String recuperarContrasena = '/recuperar-contrasena';
   static const String registro = '/registro';
   static const String cambiarContrasena = '/cambiar-contrasena';
 
-  // Rutas privadas
+  // ==================== RUTAS PRIVADAS ====================
+
   static const String candado = '/candado';
   static const String vincularCandado = '/vincular-candado';
   static const String control = '/control';
@@ -41,7 +46,8 @@ class AppRoutes {
   static const String configuracion = '/configuracion';
 
   static final routes = [
-    // Rutas públicas
+    // ==================== RUTAS PÚBLICAS ====================
+
     GetPage(
       name: splash,
       page: () => SplashPage(),
@@ -49,29 +55,35 @@ class AppRoutes {
         Get.lazyPut(() => SplashController());
       }),
     ),
+
     GetPage(
       name: login,
       page: () => LoginPage(),
       binding: BindingsBuilder(() {
         Get.delete<LoginController>();
+
         Get.lazyPut(() => LoginController());
       }),
       middlewares: [AuthMiddleware()],
     ),
+
     GetPage(
       name: recuperarContrasena,
       page: () => RecuperarPasswordPage(),
       binding: BindingsBuilder(() {
         Get.delete<RecuperarPasswordController>();
+
         Get.lazyPut(() => RecuperarPasswordController());
       }),
       middlewares: [AuthMiddleware()],
     ),
+
     GetPage(
       name: registro,
       page: () => RegistroPage(),
       binding: BindingsBuilder(() {
         Get.delete<RegistroController>();
+
         Get.lazyPut(() => RegistroController());
       }),
       middlewares: [AuthMiddleware()],
@@ -85,39 +97,72 @@ class AppRoutes {
       }),
     ),
 
-    // Rutas protegidas
+    // ==================== CANDADOS ====================
     GetPage(
       name: AppRoutes.candado,
       page: () => VistaListaCandados(),
       binding: BindingsBuilder(() {
-        Get.put(CandadoBLEController());
+        final bleGateway = FlutterBluetoothService();
+
+        Get.put(
+          CandadoBLEController(
+            service: CandadoBLEService(bleGateway: bleGateway),
+            bleGateway: bleGateway,
+          ),
+        );
       }),
       middlewares: [AuthMiddleware()],
     ),
+
     GetPage(
       name: AppRoutes.vincularCandado,
       page: () => VistaVincularCandado(),
       binding: BindingsBuilder(() {
-        Get.put(CandadoBLEController());
+        final bleGateway = FlutterBluetoothService();
+
+        Get.put(
+          CandadoBLEController(
+            service: CandadoBLEService(bleGateway: bleGateway),
+            bleGateway: bleGateway,
+          ),
+        );
       }),
       middlewares: [AuthMiddleware()],
     ),
+
     GetPage(
       name: AppRoutes.control,
       page: () => VistaControl(),
       binding: BindingsBuilder(() {
-        Get.put(CandadoBLEController());
+        final bleGateway = FlutterBluetoothService();
+
+        Get.put(
+          CandadoBLEController(
+            service: CandadoBLEService(bleGateway: bleGateway),
+            bleGateway: bleGateway,
+          ),
+        );
       }),
       middlewares: [AuthMiddleware()],
     ),
+
+    // ==================== COMPARTIR ACCESO ====================
     GetPage(
       name: AppRoutes.compartirAcceso,
       page: () => VistaCompartirAcceso(),
       binding: BindingsBuilder(() {
-        Get.lazyPut(() => CompartirAccesoController());
+        final bleGateway = FlutterBluetoothService();
+
+        final service = CandadoBLEService(bleGateway: bleGateway);
+
+        Get.put(
+          CompartirAccesoController(service: service, bleGateway: bleGateway),
+        );
       }),
       middlewares: [AuthMiddleware()],
     ),
+
+    // ==================== AMIGOS ====================
     GetPage(
       name: amigos,
       page: () => VistaAmigos(),
@@ -126,16 +171,23 @@ class AppRoutes {
       }),
       middlewares: [AuthMiddleware()],
     ),
+
+    // ==================== NOTIFICACIONES ====================
     GetPage(
       name: notificaciones,
-      page:
-          () =>
-              NotificacionesView(), //VistaNotificaciones(), // Usa el nuevo nombre de la vista
+      page: () => NotificacionesView(),
       binding: BindingsBuilder(() {
-        Get.lazyPut(() => NotificacionController());
+        Get.lazyPut<NotificacionService>(() => NotificacionService());
+
+        Get.lazyPut(
+          () =>
+              NotificacionController(service: Get.find<NotificacionService>()),
+        );
       }),
       middlewares: [AuthMiddleware()],
     ),
+
+    // ==================== CONFIGURACIÓN ====================
     GetPage(
       name: configuracion,
       page: () => VistaConfiguracion(),

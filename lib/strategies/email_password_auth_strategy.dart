@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'auth_strategy.dart';
 
 class EmailPasswordAuthStrategy implements AuthStrategy {

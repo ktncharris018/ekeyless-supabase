@@ -50,26 +50,32 @@ class AmigosController extends GetxController{
     }
   }
 
-  void filtrarUsuariosPorCategoria() {
+  List<UsuarioModel> _usuariosDeCategoria() {
     final actual = currentUser.value;
-    usuariosFiltrados.clear(); //
-    if (actual == null) return;
+    if (actual == null) return [];
 
     if (pestanaSeleccionada.value == 'Amigos') {
-      usuariosFiltrados.value = usuarios
+      return usuarios
           .where((u) => actual.amigos.contains(u.id))
           .toList();
     } else if (pestanaSeleccionada.value == 'Solicitudes') {
-      usuariosFiltrados.value = usuarios
+      return usuarios
           .where((u) => actual.solicitudesRecibidas.contains(u.id))
           .toList();
     } else if (pestanaSeleccionada.value == 'Agregar') {
-      usuariosFiltrados.value = usuarios.where((u) =>
+      return usuarios
+          .where((u) =>
               !actual.amigos.contains(u.id) &&
               !actual.solicitudesEnviadas.contains(u.id) &&
               !actual.solicitudesRecibidas.contains(u.id))
           .toList();
     }
+
+    return [];
+  }
+
+  void filtrarUsuariosPorCategoria() {
+    usuariosFiltrados.assignAll(_usuariosDeCategoria());
   }
   void cambiarPestana(String nueva) {
     pestanaSeleccionada.value = nueva;
@@ -83,19 +89,7 @@ class AmigosController extends GetxController{
     if (actual == null) return;
 
     final query = searchText.toLowerCase();
-    List<UsuarioModel> baseFiltrada = [];
-
-    if (pestanaSeleccionada.value == 'Amigos') {
-      baseFiltrada = usuarios.where((u) => actual.amigos.contains(u.id)).toList();
-    } else if (pestanaSeleccionada.value == 'Solicitudes') {
-      baseFiltrada = usuarios.where((u) => actual.solicitudesRecibidas.contains(u.id)).toList();
-    } else if (pestanaSeleccionada.value == 'Agregar') {
-      baseFiltrada = usuarios.where((u) =>
-        !actual.amigos.contains(u.id) &&
-        !actual.solicitudesEnviadas.contains(u.id) &&
-        !actual.solicitudesRecibidas.contains(u.id)
-      ).toList();
-    }
+    final baseFiltrada = _usuariosDeCategoria();
 
     final resultado = baseFiltrada.where((usuario) {
       return usuario.nombreUsuario.toLowerCase().contains(query);

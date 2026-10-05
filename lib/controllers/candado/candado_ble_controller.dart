@@ -2,13 +2,21 @@ import 'dart:async';
 
 import 'package:ekeyless/models/candado_model.dart';
 import 'package:ekeyless/routes/app_routes.dart';
+import 'package:ekeyless/services/candado/bluetooth_service.dart';
 import 'package:ekeyless/services/candado/candadoble_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
 
 class CandadoBLEController extends GetxController {
-  final CandadoBLEService _service = CandadoBLEService();
+  CandadoBLEController({
+    required CandadoBLEService service,
+    required BleLockGateway bleGateway,
+  })  : _service = service,
+        _bleGateway = bleGateway;
+
+  final CandadoBLEService _service;
+  final BleLockGateway _bleGateway;
 
   // ==================== ESTADO GENERAL ====================
   final cargando = false.obs;
@@ -30,9 +38,7 @@ class CandadoBLEController extends GetxController {
   StreamSubscription<String>? _estadoSubscription;
 
   // ==================== UTILIDADES ====================
-  final User? _currentUser = Supabase.instance.client.auth.currentUser;
-
-  User? get currentUser => _currentUser;
+  User? get currentUser => _service.currentUser;
 
   @override
   void onInit() {
@@ -107,19 +113,19 @@ class CandadoBLEController extends GetxController {
       cargando.value = true;
       
       // Verificar soporte y permisos
-      if (!await _service.esBluetoothSoportado()) {
+      if (!await _bleGateway.esBluetoothSoportado()) {
         throw Exception('Bluetooth no es compatible con este dispositivo');
       }
 
-      if (!await _service.solicitarPermisos()) {
+      if (!await _bleGateway.solicitarPermisos()) {
         throw Exception('Permisos necesarios no concedidos');
       }
 
-      if (!await _service.esBluetoothEncendido()) {
-        await _service.encenderBluetooth();
+      if (!await _bleGateway.esBluetoothEncendido()) {
+        await _bleGateway.encenderBluetooth();
       }
 
-      if (!await _service.verificarGPS()) {
+      if (!await _bleGateway.verificarGPS()) {
         throw Exception('GPS debe estar activado');
       }
 
@@ -142,7 +148,7 @@ class CandadoBLEController extends GetxController {
       final candadosRegistrados = await _service.obtenerCandadosRegistrados();
 
       _escaneoSubscription?.cancel();
-      _escaneoSubscription = _service.escanearDispositivos().listen(
+      _escaneoSubscription = _bleGateway.escanearDispositivos().listen(
         (dispositivos) {
           final dispositivosValidos = dispositivos.where((dispositivo) {
             final nombre = dispositivo.platformName.toLowerCase();
@@ -168,7 +174,7 @@ class CandadoBLEController extends GetxController {
 
   /// Detiene el escaneo
   Future<void> detenerEscaneo() async {
-    await _service.detenerEscaneo();
+    await _bleGateway.detenerEscaneo();
     _escaneoSubscription?.cancel();
     escaneoActivo.value = false;
   }
@@ -190,7 +196,7 @@ class CandadoBLEController extends GetxController {
       cargando.value = true;
       mensajeEstado.value = 'Conectando...';
 
-      await _service.conectarDispositivo(dispositivo);
+      await _bleGateway.conectarDispositivo(dispositivo);
       conectado.value = true;
       mensajeEstado.value = 'Conectado, obteniendo información...';
 
@@ -208,7 +214,7 @@ class CandadoBLEController extends GetxController {
     try {
       // Suscribirse a notificaciones de estado
       _estadoSubscription?.cancel();
-      _estadoSubscription = _service.suscribirEstado(dispositivo).listen(
+      _estadoSubscription = _bleGateway.suscribirEstado(dispositivo).listen(
         (mensaje) async {
           mensajeEstado.value = mensaje;
           await _procesarMensajeEstado(mensaje, dispositivo);
@@ -220,7 +226,7 @@ class CandadoBLEController extends GetxController {
 
       // Solicitar key después de un breve delay
       await Future.delayed(const Duration(seconds: 2));
-      await _service.enviarComando(dispositivo, 'GETKEY');
+      await _bleGateway.enviarComando(dispositivo, 'GETKEY');
       
     } catch (e) {
       throw Exception('Error en procesamiento de vinculación: $e');
@@ -304,12 +310,12 @@ class CandadoBLEController extends GetxController {
       cargando.value = true;
       mensajeEstado.value = 'Buscando candado...';
       
-      if (!await _service.solicitarPermisos()) {
+      if (!await _bleGateway.solicitarPermisos()) {
         throw Exception('Permisos necesarios no concedidos');
       }
 
-      if (!await _service.esBluetoothEncendido()) {
-        await _service.encenderBluetooth();
+      if (!await _bleGateway.esBluetoothEncendido()) {
+        await _bleGateway.encenderBluetooth();
       }
 
       await _buscarYConectarCandado(candado);
@@ -324,10 +330,10 @@ class CandadoBLEController extends GetxController {
   Future<void> _buscarYConectarCandado(CandadoModel candado) async {
     final nombreCandado = candado.nombre.toLowerCase();
     
-    await for (final dispositivos in _service.escanearDispositivos()) {
+    await for (final dispositivos in _bleGateway.escanearDispositivos()) {
       for (final dispositivo in dispositivos) {
         if (dispositivo.platformName.toLowerCase() == nombreCandado) {
-          await _service.detenerEscaneo();
+          await _bleGateway.detenerEscaneo();
           dispositivoSeleccionado.value = dispositivo;
           await _conectarParaControl(dispositivo);
           return;
@@ -340,13 +346,13 @@ class CandadoBLEController extends GetxController {
 
   Future<void> _conectarParaControl(BluetoothDevice dispositivo) async {
     try {
-      await _service.conectarDispositivo(dispositivo);
+      await _bleGateway.conectarDispositivo(dispositivo);
       conectado.value = true;
       mensajeEstado.value = 'Conectado';
 
       // Suscribirse a estado
       _estadoSubscription?.cancel();
-      _estadoSubscription = _service.suscribirEstado(dispositivo).listen(
+      _estadoSubscription = _bleGateway.suscribirEstado(dispositivo).listen(
         (mensaje) {
           mensajeEstado.value = mensaje;
         },
@@ -357,7 +363,7 @@ class CandadoBLEController extends GetxController {
 
       // Solicitar estado inicial
       await Future.delayed(const Duration(seconds: 1));
-      await _service.enviarComando(dispositivo, 'STATUS');
+      await _bleGateway.enviarComando(dispositivo, 'STATUS');
       
     } catch (e) {
       throw Exception('Error al conectar para control: $e');
@@ -369,7 +375,7 @@ class CandadoBLEController extends GetxController {
     try {
       final dispositivo = dispositivoSeleccionado.value;
       if (dispositivo != null) {
-        await _service.desconectarDispositivo(dispositivo);
+        await _bleGateway.desconectarDispositivo(dispositivo);
       }
       
       _estadoSubscription?.cancel();
@@ -391,7 +397,7 @@ class CandadoBLEController extends GetxController {
     }
 
     try {
-      await _service.enviarComando(dispositivo, comando);
+      await _bleGateway.enviarComando(dispositivo, comando);
     } catch (e) {
       _mostrarError('Error al enviar comando: ${e.toString()}');
     }

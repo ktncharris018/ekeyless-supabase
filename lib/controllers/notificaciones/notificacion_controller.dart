@@ -7,7 +7,11 @@ import 'package:ekeyless/models/notificacion_model.dart';
 import 'package:ekeyless/services/notificaciones/notificacion_service.dart';
 
 class NotificacionController extends GetxController {
+  NotificacionController({required NotificacionService service})
+      : _service = service;
+
   final RxList<NotificacionModel> notificaciones = <NotificacionModel>[].obs;
+  final NotificacionService _service;
   final SupabaseClient _client = Supabase.instance.client;
   StreamSubscription? _suscripcion;
 
@@ -27,7 +31,7 @@ class NotificacionController extends GetxController {
     final uid = _client.auth.currentUser?.id;
     if (uid == null) return;
 
-    _suscripcion = NotificacionService().obtenerNotificaciones(uid).listen((
+    _suscripcion = _service.obtenerNotificaciones(uid).listen((
       lista,
     ) {
       notificaciones.value = lista;
@@ -35,10 +39,10 @@ class NotificacionController extends GetxController {
   }
 
   Future<void> marcarComoLeida(String idNotificacion) async {
-    await NotificacionService().marcarComoLeida(idNotificacion);
+    await _service.marcarComoLeida(idNotificacion);
   }
 
   Future<void> eliminarNotificacion(String idNotificacion) async {
-    await NotificacionService().eliminarNotificacion(idNotificacion);
+    await _service.eliminarNotificacion(idNotificacion);
   }
 }

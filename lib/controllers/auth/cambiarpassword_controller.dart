@@ -1,5 +1,6 @@
 import 'package:ekeyless/routes/app_routes.dart';
 import 'package:ekeyless/services/auth/auth_service.dart';
+import 'package:ekeyless/services/auth/auth_service_exception.dart';
 import 'package:ekeyless/utils/alertas.dart';
 import 'package:ekeyless/utils/color_util.dart';
 import 'package:ekeyless/utils/validator_util.dart';

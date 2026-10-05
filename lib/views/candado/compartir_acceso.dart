@@ -9,7 +9,7 @@ class VistaCompartirAcceso extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(CompartirAccesoController());
+    final controller = Get.find<CompartirAccesoController>();
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -32,13 +32,9 @@ class VistaCompartirAcceso extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SeccionUsuariosConAcceso(controller: controller),
-
             const SizedBox(height: 32),
-
             const Divider(thickness: 1),
-
             const SizedBox(height: 32),
-
             SeccionCompartirAcceso(controller: controller),
           ],
         ),

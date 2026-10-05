@@ -13,13 +13,6 @@ class GoogleAuthStrategy implements AuthStrategy {
 
   @override
   Future<void> execute() async {
-    // ------------------------------------------------------------
-    // WEB
-    //
-    // En navegador, signInWithOAuth redirige la página hacia Google.
-    // Al regresar, Flutter Web vuelve a arrancar y SplashController
-    // detectará la sesión existente.
-    // ------------------------------------------------------------
     if (kIsWeb) {
       final launched = await _client.auth.signInWithOAuth(
         OAuthProvider.google,
@@ -33,13 +26,7 @@ class GoogleAuthStrategy implements AuthStrategy {
       return;
     }
 
-    // ------------------------------------------------------------
-    // ANDROID / IOS
-    //
-    // En móvil mantenemos el flujo mediante deep link.
-    // ------------------------------------------------------------
     final completer = Completer<void>();
-
     late final StreamSubscription<AuthState> subscription;
 
     subscription = _client.auth.onAuthStateChange.listen((data) {
@@ -58,19 +45,16 @@ class GoogleAuthStrategy implements AuthStrategy {
         throw const AuthException('No se pudo iniciar el acceso con Google.');
       }
 
-      // Es posible que la sesión ya exista cuando el callback
-      // termine inmediatamente.
       if (_client.auth.currentSession != null && !completer.isCompleted) {
         completer.complete();
       }
 
       await completer.future.timeout(
         const Duration(minutes: 2),
-        onTimeout:
-            () =>
-                throw const AuthException(
-                  'El inicio de sesión con Google tardó demasiado o fue cancelado.',
-                ),
+        onTimeout: () =>
+            throw const AuthException(
+              'El inicio de sesión con Google tardó demasiado o fue cancelado.',
+            ),
       );
     } finally {
       await subscription.cancel();
