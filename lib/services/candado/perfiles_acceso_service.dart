@@ -4,6 +4,7 @@ import 'package:ekeyless/models/perfil_acceso_model.dart';
 import 'package:ekeyless/patterns/access/access_session_manager.dart';
 import 'package:ekeyless/patterns/access/autorizacion.dart';
 import 'package:ekeyless/patterns/access/autorizacion_creator.dart';
+import 'package:ekeyless/patterns/access/prototype.dart';
 import 'package:ekeyless/patterns/access/communication_factory.dart';
 import 'package:ekeyless/repositories/perfil_acceso_repository.dart';
 import 'package:ekeyless/services/candado/bluetooth_service.dart';
@@ -54,7 +55,8 @@ class PerfilesAccesoService {
 
   Future<PerfilAcceso> duplicarPerfil(PerfilAcceso perfil) async {
     _requireOwner(perfil.propietarioId);
-    final clonado = perfil.clone().copyWith(
+    final prototypeStore = PrototypeStore<PerfilAcceso>()..registrar(perfil);
+    final clonado = prototypeStore.getObject(perfil.prototypeKey).copyWith(
       nombre: '${perfil.nombre} (copia)',
     );
     final guardado = await _perfilRepository.guardar(clonado);
@@ -71,7 +73,18 @@ class PerfilesAccesoService {
 
   Future<Autorizacion> construirAutorizacion(PerfilAcceso perfil) async {
     _requireOwner(perfil.propietarioId);
-    final creator = AutorizacionCreatorFactory.para(perfil.tipoAcceso);
+    final AutorizacionCreator creator;
+    switch (perfil.tipoAcceso) {
+      case TipoAccesoPerfil.permanente:
+        creator = AutorizacionPermanenteCreator();
+        break;
+      case TipoAccesoPerfil.temporal:
+        creator = AutorizacionTemporalCreator();
+        break;
+      case TipoAccesoPerfil.recurrente:
+        creator = AutorizacionRecurrenteCreator();
+        break;
+    }
     return creator.crear(perfil);
   }
 

@@ -6,9 +6,9 @@ Se agregó el módulo de perfiles de acceso reutilizables descrito en `cambios a
 
 `PerfilAcceso → Prototype → Builder → Factory Method → Abstract Factory → AccessSessionManager → candado`
 
-- **Prototype:** `PerfilAcceso.clone()` duplica una configuración sin reutilizar su identificador ni las listas mutables.
-- **Builder:** `AutorizacionBuilder` construye y valida autorizaciones complejas.
-- **Factory Method:** `AutorizacionCreator` tiene creadores concretos para permanente, temporal y recurrente.
+- **Prototype:** `PrototypeStore` mantiene prototipos y `PerfilAcceso` es el prototipo concreto; `clone()` genera una copia sin reutilizar su identificador ni las listas mutables.
+- **Builder:** `AutorizacionDirector` dirige la construcción mediante el contrato `AutorizacionBuilder` y sus builders concretos permanente, temporal y recurrente.
+- **Factory Method:** `AutorizacionCreator` es el creador abstracto y sus creadores concretos devuelven `AutorizacionPermanente`, `AutorizacionTemporal` o `AutorizacionRecurrente`.
 - **Abstract Factory:** `LockCommunicationFactory` define las familias Bluetooth/NFC. Bluetooth reutiliza `BleLockGateway`; NFC queda modelado como extensión arquitectónica y no se presenta como implementación física.
 - **Singleton:** `AccessSessionManager.instance` mantiene el único contexto activo de control de acceso.
 

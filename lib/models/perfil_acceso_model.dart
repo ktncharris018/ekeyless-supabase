@@ -50,7 +50,7 @@ extension CanalComunicacionX on CanalComunicacion {
 
 /// Perfil reutilizable que contiene toda la configuración necesaria para
 /// generar una autorización sin modificar el perfil original.
-class PerfilAcceso implements Prototype<PerfilAcceso> {
+class PerfilAcceso extends Prototype<PerfilAcceso> {
   final String? id;
   final String propietarioId;
   final String nombre;
@@ -213,6 +213,9 @@ class PerfilAcceso implements Prototype<PerfilAcceso> {
       fechaActualizacion: fechaActualizacion ?? this.fechaActualizacion,
     );
   }
+
+  @override
+  String get prototypeKey => id ?? '$propietarioId:$candadoKey:$nombre';
 
   @override
   PerfilAcceso clone() {
