@@ -1,4 +1,5 @@
 import 'package:ekeyless/controllers/candado/compartir_acceso_controller.dart';
+import 'package:ekeyless/routes/app_routes.dart';
 import 'package:ekeyless/widgets/candado/seccion_compartir_acceso.dart';
 import 'package:ekeyless/widgets/candado/seccion_lista_usuarios_acceso.dart';
 import 'package:flutter/material.dart';
@@ -31,6 +32,27 @@ class VistaCompartirAcceso extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Card(
+              margin: EdgeInsets.zero,
+              elevation: 0,
+              color: Colors.blue[50],
+              child: ListTile(
+                leading: const Icon(Icons.badge_outlined),
+                title: const Text(
+                  'Perfiles de acceso reutilizables',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: const Text(
+                  'Guarda y reutiliza configuraciones de acceso para este candado.',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Get.toNamed(
+                  AppRoutes.perfilesAcceso,
+                  arguments: controller.candado,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             SeccionUsuariosConAcceso(controller: controller),
             const SizedBox(height: 32),
             const Divider(thickness: 1),

@@ -142,6 +142,9 @@ class VistaListaCandados extends StatelessWidget {
                         case 'compartir':
                           controller.irACompartirAcceso(candado);
                           break;
+                        case 'perfiles':
+                          controller.irAPerfilesAcceso(candado);
+                          break;
                       }
                     },
                     itemBuilder:
@@ -164,6 +167,16 @@ class VistaListaCandados extends StatelessWidget {
                                   Icon(Icons.share, size: 20),
                                   SizedBox(width: 12),
                                   Text('Compartir acceso'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'perfiles',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.badge_outlined, size: 20),
+                                  SizedBox(width: 12),
+                                  Text('Perfiles de acceso'),
                                 ],
                               ),
                             ),
@@ -194,6 +207,8 @@ class VistaListaCandados extends StatelessWidget {
         return 'ACCESO PERMANENTE';
       case TipoUsuario.invitadoTemporal:
         return 'ACCESO TEMPORAL';
+      case TipoUsuario.invitadoRecurrente:
+        return 'ACCESO RECURRENTE';
       default:
         return 'SIN ACCESO';
     }
@@ -207,6 +222,8 @@ class VistaListaCandados extends StatelessWidget {
         return Colors.green[700]!;
       case TipoUsuario.invitadoTemporal:
         return Colors.orange[700]!;
+      case TipoUsuario.invitadoRecurrente:
+        return Colors.blue[700]!;
       default:
         return Colors.red[700]!;
     }

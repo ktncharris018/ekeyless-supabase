@@ -1,9 +1,12 @@
+import 'invitado_recurrente_model.dart';
+
 class CandadoModel {
   final String key; // La key del candado
   final String nombre;
   final String dueno;
   final List<String> invitadosPermanentes;
   final List<InvitadoTemporal> invitadosTemporales;
+  final List<InvitadoRecurrente> invitadosRecurrentes;
   final DateTime fechaCreacion;
 
   CandadoModel({
@@ -12,6 +15,7 @@ class CandadoModel {
     required this.dueno,
     this.invitadosPermanentes = const [],
     this.invitadosTemporales = const [],
+    this.invitadosRecurrentes = const [],
     required this.fechaCreacion,
   });
 
@@ -31,7 +35,12 @@ class CandadoModel {
       ),
       invitadosTemporales:
           (map['invitadosTemporales'] as List<dynamic>?)
-              ?.map((e) => InvitadoTemporal.fromJson(e))
+              ?.map((e) => InvitadoTemporal.fromJson(Map<String, dynamic>.from(e as Map)))
+              .toList() ??
+          [],
+      invitadosRecurrentes:
+          (map['invitadosRecurrentes'] as List<dynamic>?)
+              ?.map((e) => InvitadoRecurrente.fromJson(Map<String, dynamic>.from(e as Map)))
               .toList() ??
           [],
       fechaCreacion: _parseFecha(map['fechaCreacion']),
@@ -46,6 +55,8 @@ class CandadoModel {
       'invitadosPermanentes': invitadosPermanentes,
       'invitadosTemporales':
           invitadosTemporales.map((e) => e.toJson()).toList(),
+      'invitadosRecurrentes':
+          invitadosRecurrentes.map((e) => e.toJson()).toList(),
       'fechaCreacion': fechaCreacion.toIso8601String(),
     };
   }
@@ -57,10 +68,17 @@ class CandadoModel {
 
     // Verificar invitados temporales no expirados
     final ahora = DateTime.now();
-    return invitadosTemporales.any(
+    if (invitadosTemporales.any(
       (invitado) =>
           invitado.usuarioId == usuarioId &&
+          (invitado.fechaInicio == null || !ahora.isBefore(invitado.fechaInicio!)) &&
           invitado.fechaExpiracion.isAfter(ahora),
+    )) {
+      return true;
+    }
+
+    return invitadosRecurrentes.any(
+      (invitado) => invitado.usuarioId == usuarioId && invitado.tieneAcceso(ahora),
     );
   }
 
@@ -78,8 +96,15 @@ class CandadoModel {
     );
 
     if (invitadoTemporal.usuarioId.isNotEmpty &&
+        (invitadoTemporal.fechaInicio == null || !ahora.isBefore(invitadoTemporal.fechaInicio!)) &&
         invitadoTemporal.fechaExpiracion.isAfter(ahora)) {
       return TipoUsuario.invitadoTemporal;
+    }
+
+    if (invitadosRecurrentes.any(
+      (invitado) => invitado.usuarioId == usuarioId && invitado.tieneAcceso(ahora),
+    )) {
+      return TipoUsuario.invitadoRecurrente;
     }
 
     return TipoUsuario.desconocido;
@@ -91,6 +116,7 @@ class CandadoModel {
     String? dueno,
     List<String>? invitadosPermanentes,
     List<InvitadoTemporal>? invitadosTemporales,
+    List<InvitadoRecurrente>? invitadosRecurrentes,
     DateTime? fechaCreacion,
   }) {
     return CandadoModel(
@@ -99,6 +125,7 @@ class CandadoModel {
       dueno: dueno ?? this.dueno,
       invitadosPermanentes: invitadosPermanentes ?? this.invitadosPermanentes,
       invitadosTemporales: invitadosTemporales ?? this.invitadosTemporales,
+      invitadosRecurrentes: invitadosRecurrentes ?? this.invitadosRecurrentes,
       fechaCreacion: fechaCreacion ?? this.fechaCreacion,
     );
   }
@@ -106,13 +133,21 @@ class CandadoModel {
 
 class InvitadoTemporal {
   final String usuarioId;
+  final DateTime? fechaInicio;
   final DateTime fechaExpiracion;
 
-  InvitadoTemporal({required this.usuarioId, required this.fechaExpiracion});
+  InvitadoTemporal({
+    required this.usuarioId,
+    this.fechaInicio,
+    required this.fechaExpiracion,
+  });
 
   factory InvitadoTemporal.fromJson(Map<String, dynamic> map) {
     return InvitadoTemporal(
       usuarioId: map['usuarioId'] ?? '',
+      fechaInicio: map['fechaInicio'] == null
+          ? null
+          : DateTime.tryParse(map['fechaInicio'].toString()),
       fechaExpiracion: DateTime.parse(map['fechaExpiracion']),
     );
   }
@@ -120,12 +155,13 @@ class InvitadoTemporal {
   Map<String, dynamic> toJson() {
     return {
       'usuarioId': usuarioId,
+      'fechaInicio': fechaInicio?.toIso8601String(),
       'fechaExpiracion': fechaExpiracion.toIso8601String(),
     };
   }
 }
 
-enum TipoUsuario { dueno, invitado, invitadoTemporal, desconocido }
+enum TipoUsuario { dueno, invitado, invitadoTemporal, invitadoRecurrente, desconocido }
 
 enum EstadoCandado { cerrado, abierto, desconectado, abriendo, cerrando, error }
 

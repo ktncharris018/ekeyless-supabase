@@ -4,6 +4,9 @@ import 'package:ekeyless/models/candado_model.dart';
 import 'package:ekeyless/routes/app_routes.dart';
 import 'package:ekeyless/services/candado/bluetooth_service.dart';
 import 'package:ekeyless/services/candado/candadoble_service.dart';
+import 'package:ekeyless/models/perfil_acceso_model.dart';
+import 'package:ekeyless/patterns/access/access_session_manager.dart';
+import 'package:ekeyless/patterns/access/autorizacion.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
@@ -88,6 +91,25 @@ class CandadoBLEController extends GetxController {
 
   /// Navega a la vista de control
   void irAControlCandado(CandadoModel candado) {
+    final user = currentUser;
+    if (user != null) {
+      AccessSessionManager.instance.iniciar(
+        usuarioId: user.id,
+        candadoKey: candado.key,
+        autorizacion: Autorizacion(
+          usuarioId: user.id,
+          candadoKey: candado.key,
+          dispositivoId: null,
+          tipoAcceso: TipoAccesoPerfil.permanente,
+          fechaInicio: DateTime.now(),
+          fechaFin: null,
+          diasPermitidos: const [],
+          horaInicioMinutos: null,
+          horaFinMinutos: null,
+          canalComunicacion: CanalComunicacion.bluetooth,
+        ),
+      );
+    }
     candadoActual.value = candado;
     Get.toNamed(AppRoutes.control, arguments: candado);
   }
@@ -95,6 +117,11 @@ class CandadoBLEController extends GetxController {
   /// Navega a la vista de compartir acceso
   void irACompartirAcceso(CandadoModel candado) {
     Get.toNamed(AppRoutes.compartirAcceso, arguments: candado);
+  }
+
+  /// Navega al módulo de perfiles de acceso reutilizables.
+  void irAPerfilesAcceso(CandadoModel candado) {
+    Get.toNamed(AppRoutes.perfilesAcceso, arguments: candado);
   }
 
   // ==================== VINCULACIÓN DE CANDADOS ====================
@@ -267,7 +294,22 @@ class CandadoBLEController extends GetxController {
         
         await _service.guardarCandado(nuevoCandado);
         candadoActual.value = nuevoCandado;
-        
+        AccessSessionManager.instance.iniciar(
+          usuarioId: user.id,
+          candadoKey: nuevoCandado.key,
+          autorizacion: Autorizacion(
+            usuarioId: user.id,
+            candadoKey: nuevoCandado.key,
+            dispositivoId: dispositivo.remoteId.toString(),
+            tipoAcceso: TipoAccesoPerfil.permanente,
+            fechaInicio: DateTime.now(),
+            fechaFin: null,
+            diasPermitidos: const [],
+            horaInicioMinutos: null,
+            horaFinMinutos: null,
+            canalComunicacion: CanalComunicacion.bluetooth,
+          ),
+        );
         Get.offNamed(AppRoutes.control, arguments: nuevoCandado);
       } else {
         // Verificar acceso a candado existente
@@ -295,6 +337,11 @@ class CandadoBLEController extends GetxController {
         } else {
           throw Exception('Acceso temporal expirado');
         }
+        break;
+
+      case TipoUsuario.invitadoRecurrente:
+        candadoActual.value = candado;
+        Get.offNamed(AppRoutes.control, arguments: candado);
         break;
         
       default:
@@ -348,6 +395,7 @@ class CandadoBLEController extends GetxController {
     try {
       await _bleGateway.conectarDispositivo(dispositivo);
       conectado.value = true;
+      AccessSessionManager.instance.actualizarConexion(true);
       mensajeEstado.value = 'Conectado';
 
       // Suscribirse a estado
@@ -381,6 +429,7 @@ class CandadoBLEController extends GetxController {
       _estadoSubscription?.cancel();
       dispositivoSeleccionado.value = null;
       conectado.value = false;
+      AccessSessionManager.instance.actualizarConexion(false);
       mensajeEstado.value = 'Desconectado';
       
     } catch (e) {

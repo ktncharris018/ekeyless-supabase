@@ -191,8 +191,10 @@ class CandadoBLEService {
       ),
     );
 
+    final ahora = DateTime.now();
     return invitado.usuarioId.isNotEmpty &&
-        invitado.fechaExpiracion.isAfter(DateTime.now());
+        (invitado.fechaInicio == null || !ahora.isBefore(invitado.fechaInicio!)) &&
+        invitado.fechaExpiracion.isAfter(ahora);
   }
 
   void dispose() => _bleGateway.dispose();
