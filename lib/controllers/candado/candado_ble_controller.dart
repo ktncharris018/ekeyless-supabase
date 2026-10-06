@@ -96,13 +96,11 @@ class CandadoBLEController extends GetxController {
       AccessSessionManager.instance.iniciar(
         usuarioId: user.id,
         candadoKey: candado.key,
-        autorizacion: Autorizacion(
+        autorizacion: AutorizacionPermanente(
           usuarioId: user.id,
           candadoKey: candado.key,
           dispositivoId: null,
-          tipoAcceso: TipoAccesoPerfil.permanente,
           fechaInicio: DateTime.now(),
-          fechaFin: null,
           diasPermitidos: const [],
           horaInicioMinutos: null,
           horaFinMinutos: null,
@@ -297,13 +295,11 @@ class CandadoBLEController extends GetxController {
         AccessSessionManager.instance.iniciar(
           usuarioId: user.id,
           candadoKey: nuevoCandado.key,
-          autorizacion: Autorizacion(
+          autorizacion: AutorizacionPermanente(
             usuarioId: user.id,
             candadoKey: nuevoCandado.key,
             dispositivoId: dispositivo.remoteId.toString(),
-            tipoAcceso: TipoAccesoPerfil.permanente,
             fechaInicio: DateTime.now(),
-            fechaFin: null,
             diasPermitidos: const [],
             horaInicioMinutos: null,
             horaFinMinutos: null,
