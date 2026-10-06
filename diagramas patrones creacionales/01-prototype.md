@@ -1,6 +1,6 @@
-# Prototype — `PerfilAcceso`
+# Prototype — `PerfilAcceso` y `PrototypeStore`
 
-**Archivo fuente:** `lib/patterns/access/prototype.dart` y `lib/models/perfil_acceso_model.dart`.
+**Archivos fuente:** `lib/patterns/access/prototype.dart`, `lib/models/perfil_acceso_model.dart` y `lib/services/candado/perfiles_acceso_service.dart`.
 
 ## Diagrama de clases
 
@@ -9,8 +9,18 @@ classDiagram
     direction LR
 
     class Prototype~T~ {
-        <<interface>>
-        +T clone()
+        <<abstract Prototype>>
+        +Prototype()
+        +String prototypeKey
+        +T clone()*
+    }
+
+    class PrototypeStore~T~ {
+        <<Prototype Registry>>
+        +List~T~ prototypes
+        +PrototypeStore(Iterable~T~ prototypes)
+        +void registrar(T prototype)
+        +T getObject(String key)
     }
 
     class PerfilAcceso {
@@ -30,22 +40,23 @@ classDiagram
         -CanalComunicacion canalComunicacion
         -DateTime fechaCreacion
         -DateTime fechaActualizacion
-        +PerfilAcceso nuevo(...)
-        +PerfilAcceso fromJson(Map~String,dynamic~ json)
-        +Map~String,dynamic~ toJson()
-        +PerfilAcceso copyWith(...)
+        +String prototypeKey
         +PerfilAcceso clone()
+        +PerfilAcceso copyWith(...)
         +String rangoHorario
     }
 
-    Prototype~PerfilAcceso~ <|.. PerfilAcceso : implements
-    PerfilAcceso ..> PerfilAcceso : clone crea una copia independiente
+    Prototype~PerfilAcceso~ <|-- PerfilAcceso
+    PrototypeStore~PerfilAcceso~ o-- "0..*" PerfilAcceso : registra
+    PrototypeStore~PerfilAcceso~ ..> PerfilAcceso : getObject llama clone
 ```
 
 ## Funcionamiento en el proyecto
 
-`Prototype<T>` define la operación `clone()`. `PerfilAcceso` es el `ConcretePrototype`: contiene toda la configuración reutilizable de un acceso, como usuario, candado, tipo de acceso, vigencia, días, horario y canal de comunicación.
+`Prototype<T>` ahora es una clase abstracta con tres elementos del contrato: su constructor `const`, `prototypeKey` para identificar el prototipo y `clone()` para producir una copia. `PerfilAcceso` es el `ConcretePrototype` porque extiende `Prototype<PerfilAcceso>`, define su clave y conserva la implementación de clonación.
 
-Cuando el usuario duplica un perfil desde la funcionalidad de perfiles de acceso, se invoca `perfil.clone()`. La copia conserva la configuración funcional, pero recibe `id: null` y nuevas fechas de creación y actualización. Además, `diasPermitidos` se reconstruye como una lista inmodificable, por lo que el original y la copia no comparten la misma referencia mutable.
+`PrototypeStore<T>` actúa como registro de prototipos. `registrar()` reemplaza un prototipo existente con la misma clave y `getObject(key)` busca el prototipo registrado y devuelve `prototype.clone()`, en vez de devolver la misma instancia. En `PerfilesAccesoService.duplicarPerfil()` se registra el perfil original, se obtiene una copia mediante `getObject(perfil.prototypeKey)`, se cambia su nombre y se persiste como un nuevo perfil.
 
-La aplicación usa correctamente Prototype porque la operación no crea una configuración desde cero ni obliga a conocer todos sus campos. Parte de un perfil ya configurado y produce otra instancia equivalente que puede persistirse como un nuevo perfil sin alterar el original. `PerfilAcceso.nuevo`, `fromJson` y `copyWith` no son roles adicionales del patrón; se muestran únicamente porque son métodos propios de la clase concreta que participa directamente en la clonación.
+La implementación aplica correctamente Prototype porque el flujo de duplicación parte de una configuración existente y evita reconstruir manualmente todos sus campos. `PerfilAcceso.clone()` conserva la configuración funcional, genera `id: null`, actualiza las fechas y crea una nueva lista inmodificable de días. La clave calculada por `id ?? '$propietarioId:$candadoKey:$nombre'` permite registrar también perfiles nuevos que todavía no tienen identificador de base de datos.
+
+`PrototypeStore` sí se usa en el servicio real y no es una clase aislada. No es Singleton: cada operación puede crear un registro independiente con los prototipos que necesite.

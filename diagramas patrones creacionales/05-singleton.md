@@ -1,6 +1,6 @@
 # Singleton — `AccessSessionManager`
 
-**Archivo fuente:** `lib/patterns/access/access_session_manager.dart`.
+**Archivos fuente:** `lib/patterns/access/access_session_manager.dart` y `lib/patterns/access/autorizacion.dart`.
 
 ## Diagrama de clases
 
@@ -24,7 +24,7 @@ classDiagram
     }
 
     class Autorizacion {
-        <<Session state>>
+        <<Product interface>>
         +String usuarioId
         +String candadoKey
         +TipoAccesoPerfil tipoAcceso
@@ -34,16 +34,45 @@ classDiagram
         +String estado
     }
 
+    class _AutorizacionBase {
+        <<abstract Product base>>
+        +String usuarioId
+        +String candadoKey
+        +TipoAccesoPerfil tipoAcceso
+        +DateTime fechaInicio
+        +DateTime? fechaFin
+        +String estado
+    }
+
+    class AutorizacionPermanente {
+        <<Concrete Product>>
+        +AutorizacionPermanente(...)
+    }
+
+    class AutorizacionTemporal {
+        <<Concrete Product>>
+        +AutorizacionTemporal(...)
+    }
+
+    class AutorizacionRecurrente {
+        <<Concrete Product>>
+        +AutorizacionRecurrente(...)
+    }
+
+    Autorizacion <|.. _AutorizacionBase
+    _AutorizacionBase <|-- AutorizacionPermanente
+    _AutorizacionBase <|-- AutorizacionTemporal
+    _AutorizacionBase <|-- AutorizacionRecurrente
     AccessSessionManager o-- Autorizacion : mantiene autorización activa
-    AccessSessionManager ..> AccessSessionManager : instance devuelve la única instancia
+    AccessSessionManager ..> AccessSessionManager : instance devuelve única instancia
 ```
 
 ## Funcionamiento en el proyecto
 
-`AccessSessionManager` aplica Singleton mediante un constructor privado `AccessSessionManager._()` y una instancia estática única: `static final AccessSessionManager instance = AccessSessionManager._();`. Como el constructor no es accesible desde fuera, el resto de la aplicación obtiene el contexto con `AccessSessionManager.instance`.
+`AccessSessionManager` conserva el Singleton sin cambios: su constructor `AccessSessionManager._()` es privado y `static final AccessSessionManager instance = AccessSessionManager._()` crea una única instancia accesible por toda la aplicación. El test de patrones comprueba que dos lecturas de `AccessSessionManager.instance` son idénticas.
 
-La instancia mantiene el único contexto activo de control de acceso: usuario, candado, autorización, canal y estado de conexión. `iniciar()` carga una autorización activa y reinicia el estado de conexión; `actualizarConexion()` cambia el estado BLE; `cerrar()` limpia todos los datos. El getter `activa` indica si existe una autorización vigente en el contexto.
+El cambio nuevo afecta al tipo de estado que administra. `Autorizacion` dejó de ser una clase concreta y pasó a ser una interfaz; `_AutorizacionBase` contiene la implementación común y existen tres productos concretos: `AutorizacionPermanente`, `AutorizacionTemporal` y `AutorizacionRecurrente`. `AccessSessionManager.autorizacionActiva` mantiene la interfaz, por lo que puede recibir cualquiera de esas autorizaciones sin romper el Singleton.
 
-`Autorizacion` se muestra porque es el estado de dominio que el Singleton mantiene directamente; no es otro Singleton ni una instancia global. El test `perfiles_acceso_patterns_test.dart` confirma el contrato con `identical(AccessSessionManager.instance, AccessSessionManager.instance) == true`.
+`iniciar()` carga usuario, candado y autorización, copia el canal y reinicia la conexión; `actualizarConexion()` modifica el estado de conexión; `cerrar()` limpia el contexto completo; `activa` indica si hay autorización activa. El Singleton comparte ese contexto entre controladores y servicios que operan sobre el candado.
 
-La aplicación usa correctamente Singleton porque el control de una sesión de acceso debe ser compartido por las vistas y servicios que operan sobre el candado, evitando dos contextos activos diferentes en memoria. El alcance está limitado a la sesión viva de la aplicación: no es persistencia de usuario ni reemplaza el almacenamiento de perfiles o autorizaciones.
+La aplicación sigue aplicando correctamente Singleton porque existe un único contexto de sesión en memoria. La interfaz `Autorizacion` y sus productos no son Singletons: son objetos de estado creados por Builder/Factory Method y almacenados temporalmente por `AccessSessionManager`. Este alcance evita confundir la unicidad del administrador con la creación de autorizaciones.

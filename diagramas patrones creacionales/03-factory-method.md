@@ -1,6 +1,6 @@
 # Factory Method — `AutorizacionCreator`
 
-**Archivo fuente:** `lib/patterns/access/autorizacion_creator.dart`.
+**Archivos fuente:** `lib/patterns/access/autorizacion_creator.dart`, `lib/patterns/access/autorizacion_builder.dart` y `lib/patterns/access/autorizacion.dart`.
 
 ## Diagrama de clases
 
@@ -11,28 +11,28 @@ classDiagram
     class AutorizacionCreator {
         <<Creator>>
         +Autorizacion crear(PerfilAcceso perfil)*
-        #AutorizacionBuilder _builder(PerfilAcceso perfil)
     }
 
     class AutorizacionPermanenteCreator {
-        <<ConcreteCreator>>
+        <<Concrete Creator>>
         +Autorizacion crear(PerfilAcceso perfil)
     }
 
     class AutorizacionTemporalCreator {
-        <<ConcreteCreator>>
+        <<Concrete Creator>>
         +Autorizacion crear(PerfilAcceso perfil)
     }
 
     class AutorizacionRecurrenteCreator {
-        <<ConcreteCreator>>
+        <<Concrete Creator>>
         +Autorizacion crear(PerfilAcceso perfil)
     }
 
     class Autorizacion {
-        <<Product>>
+        <<Product interface>>
         +String usuarioId
         +String candadoKey
+        +String? dispositivoId
         +TipoAccesoPerfil tipoAcceso
         +DateTime fechaInicio
         +DateTime? fechaFin
@@ -43,8 +43,54 @@ classDiagram
         +String estado
     }
 
+    class _AutorizacionBase {
+        <<abstract Product base>>
+        +String usuarioId
+        +String candadoKey
+        +TipoAccesoPerfil tipoAcceso
+        +DateTime fechaInicio
+        +DateTime? fechaFin
+        +String estado
+    }
+
+    class AutorizacionPermanente {
+        <<Concrete Product>>
+        +AutorizacionPermanente(...)
+    }
+
+    class AutorizacionTemporal {
+        <<Concrete Product>>
+        +AutorizacionTemporal(...)
+    }
+
+    class AutorizacionRecurrente {
+        <<Concrete Product>>
+        +AutorizacionRecurrente(...)
+    }
+
+    class AutorizacionBuilder {
+        <<Builder collaborator>>
+        +AutorizacionBuilder paraUsuario(String usuarioId)
+        +AutorizacionBuilder paraCandado(String candadoKey)
+        +AutorizacionBuilder paraDispositivo(String? dispositivoId)
+        +AutorizacionBuilder tipo(TipoAccesoPerfil tipoAcceso)
+        +AutorizacionBuilder desde(DateTime fechaInicio)
+        +AutorizacionBuilder hasta(DateTime? fechaFin)
+        +AutorizacionBuilder enDias(List~int~ diasPermitidos)
+        +AutorizacionBuilder enHorario(int? inicio, int? fin)
+        +AutorizacionBuilder porCanal(CanalComunicacion canal)
+        +Autorizacion build()
+    }
+
+    class AutorizacionDirector {
+        <<Direct collaborator>>
+        +AutorizacionBuilder builder
+        +AutorizacionDirector(AutorizacionBuilder builder)
+        +Autorizacion construirObjeto(PerfilAcceso perfil)
+    }
+
     class PerfilAcceso {
-        <<Direct input collaborator>>
+        <<Input collaborator>>
         +String usuarioId
         +String candadoKey
         +TipoAccesoPerfil tipoAcceso
@@ -56,38 +102,30 @@ classDiagram
         +CanalComunicacion canalComunicacion
     }
 
-    class AutorizacionBuilder {
-        <<Builder collaborator>>
-        -String? _usuarioId
-        -String? _candadoKey
-        -TipoAccesoPerfil _tipoAcceso
-        -DateTime? _fechaInicio
-        -DateTime? _fechaFin
-        +AutorizacionBuilder paraUsuario(String usuarioId)
-        +AutorizacionBuilder paraCandado(String candadoKey)
-        +AutorizacionBuilder tipo(TipoAccesoPerfil tipoAcceso)
-        +AutorizacionBuilder desde(DateTime fechaInicio)
-        +AutorizacionBuilder hasta(DateTime? fechaFin)
-        +Autorizacion build()
-    }
-
     AutorizacionCreator <|-- AutorizacionPermanenteCreator
     AutorizacionCreator <|-- AutorizacionTemporalCreator
     AutorizacionCreator <|-- AutorizacionRecurrenteCreator
-    AutorizacionCreator ..> PerfilAcceso : recibe perfil
-    AutorizacionCreator ..> AutorizacionBuilder : prepara datos
-    AutorizacionCreator ..> Autorizacion : factory method produce
-    AutorizacionPermanenteCreator ..> Autorizacion : tipo permanente
-    AutorizacionTemporalCreator ..> Autorizacion : tipo temporal
-    AutorizacionRecurrenteCreator ..> Autorizacion : tipo recurrente
+    Autorizacion <|.. _AutorizacionBase
+    _AutorizacionBase <|-- AutorizacionPermanente
+    _AutorizacionBase <|-- AutorizacionTemporal
+    _AutorizacionBase <|-- AutorizacionRecurrente
+    AutorizacionCreator ..> PerfilAcceso : recibe
+    AutorizacionPermanenteCreator ..> AutorizacionPermanente : selecciona producto
+    AutorizacionTemporalCreator ..> AutorizacionTemporal : selecciona producto
+    AutorizacionRecurrenteCreator ..> AutorizacionRecurrente : selecciona producto
+    AutorizacionPermanenteCreator ..> AutorizacionDirector : delega ensamblaje
+    AutorizacionTemporalCreator ..> AutorizacionDirector : delega ensamblaje
+    AutorizacionRecurrenteCreator ..> AutorizacionDirector : delega ensamblaje
+    AutorizacionDirector ..> AutorizacionBuilder : usa
+    AutorizacionDirector ..> PerfilAcceso : copia datos
 ```
 
 ## Funcionamiento en el proyecto
 
-`AutorizacionCreator` es el creador abstracto y declara el método fábrica `crear(PerfilAcceso perfil)`. También centraliza `_builder(perfil)`, que copia los datos del perfil a un `AutorizacionBuilder`.
+`AutorizacionCreator` es el creador abstracto y declara el método fábrica `crear(PerfilAcceso perfil)`. Las subclases concretas deciden la variante del producto: `AutorizacionPermanenteCreator` usa `AutorizacionPermanenteBuilder`, `AutorizacionTemporalCreator` usa `AutorizacionTemporalBuilder` y `AutorizacionRecurrenteCreator` usa `AutorizacionRecurrenteBuilder`.
 
-Las clases concretas especializan la creación: `AutorizacionPermanenteCreator` fuerza el tipo permanente y elimina la fecha final; `AutorizacionTemporalCreator` conserva el tipo temporal y delega en el builder la validación de la fecha final; `AutorizacionRecurrenteCreator` fuerza el tipo recurrente y conserva días y horario. Las tres devuelven el mismo producto abstracto/concreto `Autorizacion`.
+La creación concreta se realiza en dos niveles coordinados. Cada creador concreto selecciona el builder especializado y lo entrega a `AutorizacionDirector`; el director copia el perfil, ejecuta la secuencia común y obtiene el producto. Por eso `crear()` devuelve la abstracción `Autorizacion`, pero en tiempo de ejecución entrega respectivamente `AutorizacionPermanente`, `AutorizacionTemporal` o `AutorizacionRecurrente`.
 
-En el flujo real, `AutorizacionCreatorFactory.para(perfil.tipoAcceso)` selecciona el creador concreto y luego se llama `crear(perfil)`. Ese selector es un punto de entrada auxiliar existente en el proyecto, pero no se incluye como clase del patrón Factory Method porque no define ni implementa el método fábrica. `AutorizacionBuilder` aparece únicamente como colaborador directo: el método fábrica lo utiliza para construir y validar el producto.
+El servicio `PerfilesAccesoService.construirAutorizacion()` selecciona el `AutorizacionCreator` según `perfil.tipoAcceso` y luego llama al mismo método polimórfico `crear()`. El cliente no necesita instanciar directamente el producto concreto. La implementación cumple Factory Method porque cada creador concreto determina qué producto compatible se crea, mientras que el código cliente depende de `Autorizacion`.
 
-La aplicación usa correctamente Factory Method porque el código cliente puede trabajar con `AutorizacionCreator` sin acoplarse a la clase concreta que corresponde a cada tipo de acceso. Agregar otro tipo requiere un nuevo creador concreto y no modificar la lógica de los creadores existentes.
+`AutorizacionDirector` y los builders son colaboradores directos de la implementación actual, no roles adicionales del Factory Method. Se muestran porque los creadores los usan para completar la creación; las jerarquías Creator/Product son las que conforman el patrón Factory Method.
