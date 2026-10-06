@@ -1,78 +1,35 @@
 # Singleton — `AccessSessionManager`
 
-**Archivos fuente:** `lib/patterns/access/access_session_manager.dart` y `lib/patterns/access/autorizacion.dart`.
+**Archivo fuente:** `lib/patterns/access/access_session_manager.dart`.
 
-## Diagrama de clases
+## Clase estrictamente perteneciente al patrón
 
 ```mermaid
 classDiagram
-    direction LR
-
     class AccessSessionManager {
         <<Singleton>>
         -AccessSessionManager()
         +static AccessSessionManager instance
         +String? usuarioId
         +String? candadoKey
-        +Autorizacion? autorizacionActiva
+        +autorizacionActiva
         +String? canalComunicacion
         +bool conectado
         +bool activa
-        +void iniciar(String usuarioId, String candadoKey, Autorizacion autorizacion)
-        +void actualizarConexion(bool estado)
+        +iniciar(usuarioId, candadoKey, autorizacion)
+        +actualizarConexion(estado)
         +void cerrar()
     }
 
-    class Autorizacion {
-        <<Product interface>>
-        +String usuarioId
-        +String candadoKey
-        +TipoAccesoPerfil tipoAcceso
-        +DateTime fechaInicio
-        +DateTime? fechaFin
-        +CanalComunicacion canalComunicacion
-        +String estado
-    }
-
-    class _AutorizacionBase {
-        <<abstract Product base>>
-        +String usuarioId
-        +String candadoKey
-        +TipoAccesoPerfil tipoAcceso
-        +DateTime fechaInicio
-        +DateTime? fechaFin
-        +String estado
-    }
-
-    class AutorizacionPermanente {
-        <<Concrete Product>>
-        +AutorizacionPermanente(...)
-    }
-
-    class AutorizacionTemporal {
-        <<Concrete Product>>
-        +AutorizacionTemporal(...)
-    }
-
-    class AutorizacionRecurrente {
-        <<Concrete Product>>
-        +AutorizacionRecurrente(...)
-    }
-
-    Autorizacion <|.. _AutorizacionBase
-    _AutorizacionBase <|-- AutorizacionPermanente
-    _AutorizacionBase <|-- AutorizacionTemporal
-    _AutorizacionBase <|-- AutorizacionRecurrente
-    AccessSessionManager o-- Autorizacion : mantiene autorización activa
-    AccessSessionManager ..> AccessSessionManager : instance devuelve única instancia
+    AccessSessionManager ..> AccessSessionManager : instance devuelve la única instancia
 ```
 
 ## Funcionamiento en el proyecto
 
-`AccessSessionManager` conserva el Singleton sin cambios: su constructor `AccessSessionManager._()` es privado y `static final AccessSessionManager instance = AccessSessionManager._()` crea una única instancia accesible por toda la aplicación. El test de patrones comprueba que dos lecturas de `AccessSessionManager.instance` son idénticas.
+`AccessSessionManager` es la única clase que conforma el patrón Singleton. Su constructor `AccessSessionManager._()` es privado y `static final AccessSessionManager instance = AccessSessionManager._()` expone una única instancia compartida durante la ejecución de la aplicación.
 
-El cambio nuevo afecta al tipo de estado que administra. `Autorizacion` dejó de ser una clase concreta y pasó a ser una interfaz; `_AutorizacionBase` contiene la implementación común y existen tres productos concretos: `AutorizacionPermanente`, `AutorizacionTemporal` y `AutorizacionRecurrente`. `AccessSessionManager.autorizacionActiva` mantiene la interfaz, por lo que puede recibir cualquiera de esas autorizaciones sin romper el Singleton.
+La instancia mantiene el contexto activo de control de acceso: usuario, candado, autorización, canal y estado de conexión. `iniciar()` carga el contexto; `actualizarConexion()` cambia el estado de conexión; `cerrar()` limpia la sesión; y `activa` indica si existe una autorización activa. El test del proyecto verifica que dos accesos a `AccessSessionManager.instance` son idénticos.
 
-`iniciar()` carga usuario, candado y autorización, copia el canal y reinicia la conexión; `actualizarConexion()` modifica el estado de conexión; `cerrar()` limpia el contexto completo; `activa` indica si hay autorización activa. El Singleton comparte ese contexto entre controladores y servicios que operan sobre el candado.
+`Autorizacion` no se incluye en el diagrama porque es un objeto de estado almacenado por el Singleton, no una clase participante de su estructura. Tampoco se incluyen `AutorizacionPermanente`, `AutorizacionTemporal` ni `AutorizacionRecurrente`: son productos de Builder/Factory Method, no Singletons.
 
-La aplicación sigue aplicando correctamente Singleton porque existe un único contexto de sesión en memoria. La interfaz `Autorizacion` y sus productos no son Singletons: son objetos de estado creados por Builder/Factory Method y almacenados temporalmente por `AccessSessionManager`. Este alcance evita confundir la unicidad del administrador con la creación de autorizaciones.
+La implementación cumple Singleton porque restringe la construcción y centraliza el acceso a una única instancia de `AccessSessionManager`; la relación con la autorización es únicamente una dependencia de datos del estado de sesión.

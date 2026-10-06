@@ -2,126 +2,105 @@
 
 **Archivo fuente:** `lib/patterns/access/communication_factory.dart`.
 
-## Diagrama de clases
+## Clases estrictamente pertenecientes al patrón
 
 ```mermaid
 classDiagram
     direction LR
 
     class LockCommunicationFactory {
-        <<AbstractFactory>>
+        <<Abstract Factory>>
         +LockScanner createScanner()*
         +LockConnector createConnector()*
         +LockCommandChannel createCommandChannel()*
-        +bool implementada
     }
 
     class BluetoothCommunicationFactory {
-        <<ConcreteFactory>>
+        <<Concrete Factory>>
         -BleLockGateway _gateway
         +BluetoothCommunicationFactory(BleLockGateway gateway)
         +LockScanner createScanner()
         +LockConnector createConnector()
         +LockCommandChannel createCommandChannel()
-        +bool implementada
     }
 
     class NfcCommunicationFactory {
-        <<ConcreteFactory>>
+        <<Concrete Factory>>
         +LockScanner createScanner()
         +LockConnector createConnector()
         +LockCommandChannel createCommandChannel()
-        +bool implementada
-    }
-
-    class LockDevice {
-        <<AbstractProduct>>
-        +String id
-        +String nombre
-    }
-
-    class BluetoothLockDevice {
-        <<ConcreteProduct>>
-        +BluetoothDevice device
-        +String id
-        +String nombre
     }
 
     class LockScanner {
-        <<AbstractProduct>>
-        +Future~List~LockDevice~~ escanear(Duration timeout)
+        <<Abstract Product A>>
+        +escanear(timeout)
     }
 
     class BluetoothScanner {
-        <<ConcreteProduct>>
+        <<Concrete Product A1>>
         -BleLockGateway _gateway
-        +Future~List~LockDevice~~ escanear(Duration timeout)
+        +escanear(timeout)
     }
 
     class NfcScanner {
-        <<ConcreteProduct>>
-        +Future~List~LockDevice~~ escanear(Duration timeout)
+        <<Concrete Product A2>>
+        +escanear(timeout)
     }
 
     class LockConnector {
-        <<AbstractProduct>>
-        +Future~void~ conectar(LockDevice device)
+        <<Abstract Product B>>
+        +conectar(device)
     }
 
     class BluetoothConnector {
-        <<ConcreteProduct>>
+        <<Concrete Product B1>>
         -BleLockGateway _gateway
-        +Future~void~ conectar(LockDevice device)
+        +conectar(device)
     }
 
     class NfcConnector {
-        <<ConcreteProduct>>
-        +Future~void~ conectar(LockDevice device)
+        <<Concrete Product B2>>
+        +conectar(device)
     }
 
     class LockCommandChannel {
-        <<AbstractProduct>>
-        +Future~void~ enviar(LockDevice device, String comando)
+        <<Abstract Product C>>
+        +enviar(device, comando)
     }
 
     class BluetoothCommandChannel {
-        <<ConcreteProduct>>
+        <<Concrete Product C1>>
         -BleLockGateway _gateway
-        +Future~void~ enviar(LockDevice device, String comando)
+        +enviar(device, comando)
     }
 
     class NfcCommandChannel {
-        <<ConcreteProduct>>
-        +Future~void~ enviar(LockDevice device, String comando)
+        <<Concrete Product C2>>
+        +enviar(device, comando)
     }
 
     LockCommunicationFactory <|.. BluetoothCommunicationFactory
     LockCommunicationFactory <|.. NfcCommunicationFactory
-    LockDevice <|.. BluetoothLockDevice
     LockScanner <|.. BluetoothScanner
     LockScanner <|.. NfcScanner
     LockConnector <|.. BluetoothConnector
     LockConnector <|.. NfcConnector
     LockCommandChannel <|.. BluetoothCommandChannel
     LockCommandChannel <|.. NfcCommandChannel
-
     BluetoothCommunicationFactory ..> BluetoothScanner : crea familia Bluetooth
     BluetoothCommunicationFactory ..> BluetoothConnector : crea familia Bluetooth
     BluetoothCommunicationFactory ..> BluetoothCommandChannel : crea familia Bluetooth
     NfcCommunicationFactory ..> NfcScanner : crea familia NFC
     NfcCommunicationFactory ..> NfcConnector : crea familia NFC
     NfcCommunicationFactory ..> NfcCommandChannel : crea familia NFC
-    BluetoothScanner ..> BluetoothLockDevice : adapta dispositivos
-    BluetoothConnector ..> BluetoothLockDevice : valida tipo
-    BluetoothCommandChannel ..> BluetoothLockDevice : valida tipo
 ```
 
 ## Funcionamiento en el proyecto
 
-`LockCommunicationFactory` declara la familia de productos relacionados que necesita una comunicación con el candado: scanner, connector y command channel. `BluetoothCommunicationFactory` crea siempre la familia Bluetooth completa; `NfcCommunicationFactory` crea la familia NFC completa.
+`LockCommunicationFactory` es la `Abstract Factory` y declara tres métodos de creación para tres familias de productos relacionados: escaneo, conexión y envío de comandos.
 
-La coherencia de la familia es la propiedad central del patrón: una instancia de `BluetoothCommunicationFactory` entrega `BluetoothScanner`, `BluetoothConnector` y `BluetoothCommandChannel`, todos compatibles con `BleLockGateway`. Una instancia NFC entrega sus tres productos NFC. La lógica cliente puede depender de las interfaces y no necesita instanciar directamente cada producto concreto.
+`BluetoothCommunicationFactory` es una `Concrete Factory` que crea la familia Bluetooth (`BluetoothScanner`, `BluetoothConnector` y `BluetoothCommandChannel`). `NfcCommunicationFactory` crea la familia NFC (`NfcScanner`, `NfcConnector` y `NfcCommandChannel`). Cada producto concreto implementa la interfaz abstracta de su misma categoría.
 
-`LockDevice` y sus implementaciones son el producto de datos utilizado por las tres familias. `BluetoothLockDevice` envuelve el `BluetoothDevice` de Flutter y las clases Bluetooth validan que el dispositivo recibido pertenezca al canal correcto. `BleLockGateway` aparece solo como dependencia técnica directa de la familia Bluetooth; es una abstracción de infraestructura existente en `lib/services/candado/bluetooth_service.dart`, no un producto ni una fábrica del patrón.
+La estructura cumple Abstract Factory porque el cliente puede trabajar con `LockCommunicationFactory` y obtener una familia coherente sin instanciar directamente sus productos concretos. Bluetooth es la familia operativa; NFC está definida como extensión arquitectónica y sus operaciones aún lanzan `UnsupportedError`.
 
-NFC está definido arquitectónicamente, pero sus operaciones lanzan `UnsupportedError` porque aún no tiene implementación física en el proyecto. Eso no invalida la estructura del Abstract Factory: la familia y sus productos están definidos, mientras que Bluetooth es la familia operativa actual. `LockCommunicationFactoryProvider` selecciona la fábrica según `CanalComunicacion`, pero se excluye del diagrama por ser un selector auxiliar y no un rol estructural del patrón.
+`LockDevice` y `BluetoothLockDevice` no aparecen porque son tipos de datos usados por los productos, no productos creados por ninguno de los tres métodos de la fábrica. `BleLockGateway` es una dependencia de infraestructura de los productos Bluetooth y `LockCommunicationFactoryProvider` es un selector auxiliar; ninguno forma parte de los roles estructurales de Abstract Factory.

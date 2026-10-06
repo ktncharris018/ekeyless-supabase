@@ -2,14 +2,14 @@
 
 **Archivos fuente:** `lib/patterns/access/autorizacion_builder.dart` y `lib/patterns/access/autorizacion.dart`.
 
-## Diagrama de clases
+## Clases estrictamente pertenecientes al patrón
 
 ```mermaid
 classDiagram
     direction LR
 
     class AutorizacionBuilder {
-        <<Builder interface>>
+        <<Builder>>
         +AutorizacionBuilder paraUsuario(String usuarioId)
         +AutorizacionBuilder paraCandado(String candadoKey)
         +AutorizacionBuilder paraDispositivo(String? dispositivoId)
@@ -23,7 +23,7 @@ classDiagram
     }
 
     class _AutorizacionBuilderBase {
-        <<abstract Concrete Builder base>>
+        <<Concrete Builder base>>
         -String? _usuarioId
         -String? _candadoKey
         -String? _dispositivoId
@@ -34,15 +34,6 @@ classDiagram
         -int? _horaInicioMinutos
         -int? _horaFinMinutos
         -CanalComunicacion _canalComunicacion
-        +AutorizacionBuilder paraUsuario(String usuarioId)
-        +AutorizacionBuilder paraCandado(String candadoKey)
-        +AutorizacionBuilder paraDispositivo(String? dispositivoId)
-        +AutorizacionBuilder tipo(TipoAccesoPerfil tipoAcceso)
-        +AutorizacionBuilder desde(DateTime fechaInicio)
-        +AutorizacionBuilder hasta(DateTime? fechaFin)
-        +AutorizacionBuilder enDias(List~int~ diasPermitidos)
-        +AutorizacionBuilder enHorario(int? inicio, int? fin)
-        +AutorizacionBuilder porCanal(CanalComunicacion canal)
         +Autorizacion build()*
         +void validarComun(TipoAccesoPerfil tipoEsperado)
     }
@@ -66,11 +57,11 @@ classDiagram
         <<Director>>
         +AutorizacionBuilder builder
         +AutorizacionDirector(AutorizacionBuilder builder)
-        +Autorizacion construirObjeto(PerfilAcceso perfil)
+        +Autorizacion construirObjeto(perfil)
     }
 
     class Autorizacion {
-        <<Product interface>>
+        <<Product>>
         +String usuarioId
         +String candadoKey
         +String? dispositivoId
@@ -85,7 +76,7 @@ classDiagram
     }
 
     class _AutorizacionBase {
-        <<abstract Product base>>
+        <<Product base>>
         +String usuarioId
         +String candadoKey
         +TipoAccesoPerfil tipoAcceso
@@ -109,19 +100,6 @@ classDiagram
         +AutorizacionRecurrente(...)
     }
 
-    class PerfilAcceso {
-        <<Input collaborator>>
-        +String usuarioId
-        +String candadoKey
-        +TipoAccesoPerfil tipoAcceso
-        +DateTime fechaInicio
-        +DateTime? fechaFin
-        +List~int~ diasPermitidos
-        +int? horaInicioMinutos
-        +int? horaFinMinutos
-        +CanalComunicacion canalComunicacion
-    }
-
     AutorizacionBuilder <|.. _AutorizacionBuilderBase
     _AutorizacionBuilderBase <|-- AutorizacionPermanenteBuilder
     _AutorizacionBuilderBase <|-- AutorizacionTemporalBuilder
@@ -130,9 +108,7 @@ classDiagram
     _AutorizacionBase <|-- AutorizacionPermanente
     _AutorizacionBase <|-- AutorizacionTemporal
     _AutorizacionBase <|-- AutorizacionRecurrente
-    AutorizacionDirector o-- AutorizacionBuilder : usa
-    AutorizacionDirector ..> PerfilAcceso : lee configuración
-    AutorizacionDirector ..> Autorizacion : devuelve
+    AutorizacionDirector o-- AutorizacionBuilder : dirige
     AutorizacionPermanenteBuilder ..> AutorizacionPermanente : construye
     AutorizacionTemporalBuilder ..> AutorizacionTemporal : construye
     AutorizacionRecurrenteBuilder ..> AutorizacionRecurrente : construye
@@ -140,8 +116,10 @@ classDiagram
 
 ## Funcionamiento en el proyecto
 
-`AutorizacionBuilder` define el contrato de construcción paso a paso. `_AutorizacionBuilderBase` concentra el estado común, los métodos fluentes y la validación compartida. Los tres builders concretos implementan `build()` y determinan qué producto concreto crear: `AutorizacionPermanente`, `AutorizacionTemporal` o `AutorizacionRecurrente`.
+`AutorizacionBuilder` es el `Builder` abstracto. `_AutorizacionBuilderBase` contiene el estado común y la validación compartida; las clases `AutorizacionPermanenteBuilder`, `AutorizacionTemporalBuilder` y `AutorizacionRecurrenteBuilder` son los `Concrete Builder` y producen respectivamente un producto especializado.
 
-`AutorizacionDirector` recibe un builder por inyección, copia al builder los datos de un `PerfilAcceso` y finalmente llama `build()`. Así, el director conoce el orden de construcción, pero no necesita conocer la clase concreta del producto. Las reglas específicas se validan mediante `validarComun(tipoEsperado)`: un builder no puede construir un tipo distinto al que le corresponde; los accesos temporales requieren fecha final y los recurrentes requieren días y horario.
+`AutorizacionDirector` recibe un builder, establece en orden los datos del perfil y llama a `build()`. El resultado se expone como `Autorizacion`, mientras que las clases concretas `AutorizacionPermanente`, `AutorizacionTemporal` y `AutorizacionRecurrente` representan los productos reales.
 
-La aplicación usa correctamente Builder porque la autorización tiene muchos parámetros opcionales y reglas condicionales. El cliente puede elegir el builder concreto y delegar la secuencia al director, mientras que el producto final se expone mediante la interfaz `Autorizacion`. La separación entre interfaz, base reutilizable, builders concretos, director y productos concretos hace explícito el patrón y evita el constructor monolítico anterior.
+El patrón está correctamente aplicado porque separa la construcción paso a paso de la representación final y permite aplicar reglas distintas: el builder temporal exige fecha final y el recurrente exige días y horario. `PerfilAcceso` solo es el objeto de entrada que el director lee; no es un participante estructural del patrón y por eso no se incluye como clase.
+
+Se conservan `_AutorizacionBuilderBase` y `_AutorizacionBase` porque son superclases reales de las clases conformantes: contienen el estado y comportamiento que las implementaciones concretas heredan directamente.
