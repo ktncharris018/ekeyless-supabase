@@ -7,6 +7,8 @@ import 'package:ekeyless/services/candado/candadoble_service.dart';
 import 'package:ekeyless/models/perfil_acceso_model.dart';
 import 'package:ekeyless/patterns/access/access_session_manager.dart';
 import 'package:ekeyless/patterns/access/autorizacion.dart';
+import 'package:ekeyless/patterns/access/communication_factory.dart';
+import 'package:ekeyless/patterns/access/lock_command_channel_decorator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
@@ -16,10 +18,17 @@ class CandadoBLEController extends GetxController {
     required CandadoBLEService service,
     required BleLockGateway bleGateway,
   })  : _service = service,
-        _bleGateway = bleGateway;
+        _bleGateway = bleGateway,
+        _commandChannel = LoggingLockCommandChannelDecorator(
+          LockCommunicationFactoryProvider.forChannel(
+            CanalComunicacion.bluetooth,
+            bluetoothGateway: bleGateway,
+          ).createCommandChannel(),
+        );
 
   final CandadoBLEService _service;
   final BleLockGateway _bleGateway;
+  final LockCommandChannel _commandChannel;
 
   // ==================== ESTADO GENERAL ====================
   final cargando = false.obs;
@@ -251,7 +260,7 @@ class CandadoBLEController extends GetxController {
 
       // Solicitar key después de un breve delay
       await Future.delayed(const Duration(seconds: 2));
-      await _bleGateway.enviarComando(dispositivo, 'GETKEY');
+      await _enviarComandoPorCanal(dispositivo, 'GETKEY');
       
     } catch (e) {
       throw Exception('Error en procesamiento de vinculación: $e');
@@ -407,7 +416,7 @@ class CandadoBLEController extends GetxController {
 
       // Solicitar estado inicial
       await Future.delayed(const Duration(seconds: 1));
-      await _bleGateway.enviarComando(dispositivo, 'STATUS');
+      await _enviarComandoPorCanal(dispositivo, 'STATUS');
       
     } catch (e) {
       throw Exception('Error al conectar para control: $e');
@@ -442,10 +451,19 @@ class CandadoBLEController extends GetxController {
     }
 
     try {
-      await _bleGateway.enviarComando(dispositivo, comando);
+      await _enviarComandoPorCanal(dispositivo, comando);
     } catch (e) {
       _mostrarError('Error al enviar comando: ${e.toString()}');
     }
+  }
+
+  /// Envía las órdenes de control a través del decorador de registro,
+  /// que registra el resultado y la duración del intento de envío BLE.
+  Future<void> _enviarComandoPorCanal(
+    BluetoothDevice dispositivo,
+    String comando,
+  ) {
+    return _commandChannel.enviar(BluetoothLockDevice(dispositivo), comando);
   }
 
   /// Regresa al listado de candados

@@ -4,6 +4,7 @@ import 'package:ekeyless/patterns/access/autorizacion_builder.dart';
 import 'package:ekeyless/patterns/access/autorizacion.dart';
 import 'package:ekeyless/patterns/access/autorizacion_creator.dart';
 import 'package:ekeyless/patterns/access/communication_factory.dart';
+import 'package:ekeyless/patterns/access/lock_command_channel_decorator.dart';
 import 'package:ekeyless/patterns/access/prototype.dart';
 import 'package:ekeyless/services/candado/bluetooth_service.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -105,6 +106,51 @@ void main() {
     });
   });
 
+  group('Decorator', () {
+    test('registra el inicio y el fin sin modificar el comando', () async {
+      final canalOriginal = _FakeLockCommandChannel();
+      final registros = <String>[];
+      final decorador = LoggingLockCommandChannelDecorator(
+        canalOriginal,
+        logger: (message, {Object? error, StackTrace? stackTrace}) {
+          registros.add(message);
+        },
+      );
+
+      await decorador.enviar(_FakeLockDevice(), ' open ');
+
+      expect(canalOriginal.comandos, [' open ']);
+      expect(registros, hasLength(2));
+      expect(registros.first, contains('Inicio de envío'));
+      expect(registros.first, contains(' open '));
+      expect(registros.last, contains('terminó el envío'));
+      expect(registros.last, contains('ms'));
+      expect(registros.last, contains('no confirma la ejecución física'));
+    });
+
+    test('registra el error y lo propaga al llamador', () async {
+      final errorEnvio = StateError('Fallo simulado de Bluetooth');
+      final canalOriginal = _FakeLockCommandChannel(error: errorEnvio);
+      final registros = <String>[];
+      final decorador = LoggingLockCommandChannelDecorator(
+        canalOriginal,
+        logger: (message, {Object? error, StackTrace? stackTrace}) {
+          registros.add(error == null ? message : '$message $error');
+        },
+      );
+
+      await expectLater(
+        decorador.enviar(_FakeLockDevice(), 'OPEN'),
+        throwsA(same(errorEnvio)),
+      );
+
+      expect(canalOriginal.comandos, ['OPEN']);
+      expect(registros, hasLength(2));
+      expect(registros.last, contains('Falló el envío'));
+      expect(registros.last, contains('Fallo simulado de Bluetooth'));
+    });
+  });
+
   group('Singleton', () {
     test('AccessSessionManager mantiene una única instancia', () {
       final first = AccessSessionManager.instance;
@@ -156,4 +202,25 @@ class _FakeBleGateway implements BleLockGateway {
 
   @override
   void dispose() {}
+}
+
+class _FakeLockDevice implements LockDevice {
+  @override
+  String get id => 'fake-device';
+
+  @override
+  String get nombre => 'Fake lock';
+}
+
+class _FakeLockCommandChannel implements LockCommandChannel {
+  _FakeLockCommandChannel({this.error});
+
+  final Object? error;
+  final List<String> comandos = [];
+
+  @override
+  Future<void> enviar(LockDevice device, String comando) async {
+    comandos.add(comando);
+    if (error != null) throw error!;
+  }
 }
