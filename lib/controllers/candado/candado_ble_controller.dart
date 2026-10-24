@@ -9,6 +9,8 @@ import 'package:ekeyless/patterns/access/access_session_manager.dart';
 import 'package:ekeyless/patterns/access/autorizacion.dart';
 import 'package:ekeyless/patterns/access/communication_factory.dart';
 import 'package:ekeyless/patterns/access/lock_command_channel_decorator.dart';
+import 'package:ekeyless/patterns/access/connected_lock_command_channel_proxy.dart';
+import 'package:ekeyless/patterns/access/simulated_lock.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
@@ -18,17 +20,31 @@ class CandadoBLEController extends GetxController {
     required CandadoBLEService service,
     required BleLockGateway bleGateway,
   })  : _service = service,
-        _bleGateway = bleGateway,
-        _commandChannel = LoggingLockCommandChannelDecorator(
-          LockCommunicationFactoryProvider.forChannel(
-            CanalComunicacion.bluetooth,
-            bluetoothGateway: bleGateway,
-          ).createCommandChannel(),
-        );
+        _bleGateway = bleGateway {
+    final bluetoothChannel = LockCommunicationFactoryProvider.forChannel(
+      CanalComunicacion.bluetooth,
+      bluetoothGateway: bleGateway,
+    ).createCommandChannel();
+
+    // La cadena conserva Decorator y añade Proxy antes de llegar al canal.
+    _commandChannel = LoggingLockCommandChannelDecorator(
+      ConnectedLockCommandChannelProxy(
+        SimulatedAwareLockCommandChannel(
+          bluetoothChannel: bluetoothChannel,
+          simulatedChannel: SimulatedLockCommandChannel(
+            SimulatedLockDevice.instance,
+          ),
+        ),
+        isConnected: () => conectado.value,
+        selectedDeviceId: () => _dispositivoCanalActivo?.id,
+      ),
+    );
+  }
 
   final CandadoBLEService _service;
   final BleLockGateway _bleGateway;
-  final LockCommandChannel _commandChannel;
+  late final LockCommandChannel _commandChannel;
+  LockDevice? _dispositivoCanalActivo;
 
   // ==================== ESTADO GENERAL ====================
   final cargando = false.obs;
@@ -83,13 +99,30 @@ class CandadoBLEController extends GetxController {
     try {
       cargandoCandados.value = true;
       final candados = await _service.obtenerCandadosUsuario();
-      candadosUsuario.assignAll(candados);
+      candadosUsuario.assignAll(_agregarCandadoSimulado(candados));
     } catch (e) {
       _mostrarError('Error al cargar candados: ${e.toString()}');
-      candadosUsuario.clear();
+      // El candado de demostración sigue disponible aunque falle la consulta.
+      candadosUsuario.assignAll(_agregarCandadoSimulado(<CandadoModel>[]));
     } finally {
       cargandoCandados.value = false;
     }
+  }
+
+  List<CandadoModel> _agregarCandadoSimulado(List<CandadoModel> candados) {
+    final user = currentUser;
+    if (user == null) return candados;
+
+    final resultado = candados.where((c) => !c.esSimulado).toList();
+    resultado.add(
+      CandadoModel(
+        key: CandadoModel.claveCandadoSimulado,
+        nombre: CandadoModel.nombreCandadoSimulado,
+        dueno: user.id,
+        fechaCreacion: DateTime.now(),
+      ),
+    );
+    return resultado;
   }
 
   /// Navega a la vista de vinculación
@@ -146,23 +179,8 @@ class CandadoBLEController extends GetxController {
     try {
       cargando.value = true;
       
-      // Verificar soporte y permisos
-      if (!await _bleGateway.esBluetoothSoportado()) {
-        throw Exception('Bluetooth no es compatible con este dispositivo');
-      }
-
-      if (!await _bleGateway.solicitarPermisos()) {
-        throw Exception('Permisos necesarios no concedidos');
-      }
-
-      if (!await _bleGateway.esBluetoothEncendido()) {
-        await _bleGateway.encenderBluetooth();
-      }
-
-      if (!await _bleGateway.verificarGPS()) {
-        throw Exception('GPS debe estar activado');
-      }
-
+      // La fachada prepara los servicios necesarios para vincular.
+      await _service.prepararBluetoothParaVinculacion();
       await _iniciarEscaneo();
       
     } catch (e) {
@@ -231,6 +249,7 @@ class CandadoBLEController extends GetxController {
       mensajeEstado.value = 'Conectando...';
 
       await _bleGateway.conectarDispositivo(dispositivo);
+      _dispositivoCanalActivo = BluetoothLockDevice(dispositivo);
       conectado.value = true;
       mensajeEstado.value = 'Conectado, obteniendo información...';
 
@@ -238,6 +257,7 @@ class CandadoBLEController extends GetxController {
       
     } catch (e) {
       conectado.value = false;
+      _dispositivoCanalActivo = null;
       _mostrarError('Error al vincular: ${e.toString()}');
     } finally {
       cargando.value = false;
@@ -361,22 +381,41 @@ class CandadoBLEController extends GetxController {
     try {
       cargando.value = true;
       mensajeEstado.value = 'Buscando candado...';
-      
-      if (!await _bleGateway.solicitarPermisos()) {
-        throw Exception('Permisos necesarios no concedidos');
+
+      if (candado.esSimulado) {
+        await _conectarCandadoSimulado(candado);
+        return;
       }
 
-      if (!await _bleGateway.esBluetoothEncendido()) {
-        await _bleGateway.encenderBluetooth();
-      }
-
+      // La fachada prepara Bluetooth para un candado físico ya registrado.
+      await _service.prepararBluetoothParaControl();
       await _buscarYConectarCandado(candado);
-      
+
     } catch (e) {
+      conectado.value = false;
+      _dispositivoCanalActivo = null;
       _mostrarError('Error al reconectar: ${e.toString()}');
     } finally {
       cargando.value = false;
     }
+  }
+
+  Future<void> _conectarCandadoSimulado(CandadoModel candado) async {
+    final dispositivo = SimulatedLockDevice.instance;
+    _estadoSubscription?.cancel();
+    dispositivoSeleccionado.value = null;
+    _dispositivoCanalActivo = dispositivo;
+    conectado.value = true;
+    candadoActual.value = candado;
+    AccessSessionManager.instance.actualizarConexion(true);
+    mensajeEstado.value = 'Conectado al candado simulado';
+
+    _estadoSubscription = dispositivo.mensajes.listen((mensaje) {
+      mensajeEstado.value = mensaje;
+    });
+
+    // Pide el estado inicial usando la misma cadena Decorator + Proxy.
+    await _commandChannel.enviar(dispositivo, 'STATUS');
   }
 
   Future<void> _buscarYConectarCandado(CandadoModel candado) async {
@@ -399,6 +438,7 @@ class CandadoBLEController extends GetxController {
   Future<void> _conectarParaControl(BluetoothDevice dispositivo) async {
     try {
       await _bleGateway.conectarDispositivo(dispositivo);
+      _dispositivoCanalActivo = BluetoothLockDevice(dispositivo);
       conectado.value = true;
       AccessSessionManager.instance.actualizarConexion(true);
       mensajeEstado.value = 'Conectado';
@@ -419,6 +459,9 @@ class CandadoBLEController extends GetxController {
       await _enviarComandoPorCanal(dispositivo, 'STATUS');
       
     } catch (e) {
+      conectado.value = false;
+      _dispositivoCanalActivo = null;
+      AccessSessionManager.instance.actualizarConexion(false);
       throw Exception('Error al conectar para control: $e');
     }
   }
@@ -426,12 +469,13 @@ class CandadoBLEController extends GetxController {
   /// Desconecta el candado actual
   Future<void> desconectarCandado() async {
     try {
-      final dispositivo = dispositivoSeleccionado.value;
-      if (dispositivo != null) {
-        await _bleGateway.desconectarDispositivo(dispositivo);
+      final dispositivoActivo = _dispositivoCanalActivo;
+      if (dispositivoActivo is BluetoothLockDevice) {
+        await _bleGateway.desconectarDispositivo(dispositivoActivo.device);
       }
-      
+
       _estadoSubscription?.cancel();
+      _dispositivoCanalActivo = null;
       dispositivoSeleccionado.value = null;
       conectado.value = false;
       AccessSessionManager.instance.actualizarConexion(false);
@@ -444,21 +488,20 @@ class CandadoBLEController extends GetxController {
 
   /// Envía comando al candado
   Future<void> enviarComando(String comando) async {
-    final dispositivo = dispositivoSeleccionado.value;
+    final dispositivo = _dispositivoCanalActivo;
     if (dispositivo == null || !conectado.value) {
       _mostrarError('Candado no conectado');
       return;
     }
 
     try {
-      await _enviarComandoPorCanal(dispositivo, comando);
+      await _commandChannel.enviar(dispositivo, comando);
     } catch (e) {
       _mostrarError('Error al enviar comando: ${e.toString()}');
     }
   }
 
-  /// Envía las órdenes de control a través del decorador de registro,
-  /// que registra el resultado y la duración del intento de envío BLE.
+  /// Envía las órdenes de vinculación al canal de comandos decorado.
   Future<void> _enviarComandoPorCanal(
     BluetoothDevice dispositivo,
     String comando,
@@ -479,6 +522,9 @@ class CandadoBLEController extends GetxController {
     final estado = mensajeEstado.value;
     return estado.contains('OPENED') || estado.contains('STATUS:OPEN');
   }
+
+  bool get esCandadoSimuladoActivo =>
+      _dispositivoCanalActivo is SimulatedLockDevice;
 
   void _mostrarError(String mensaje) {
     Get.snackbar(

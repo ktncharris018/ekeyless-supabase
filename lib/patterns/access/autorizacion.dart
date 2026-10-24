@@ -26,7 +26,6 @@ abstract class _AutorizacionBase implements Autorizacion {
     required this.horaInicioMinutos,
     required this.horaFinMinutos,
     required this.canalComunicacion,
-    this.estado = 'activa',
   });
 
   @override
@@ -60,7 +59,7 @@ abstract class _AutorizacionBase implements Autorizacion {
   final CanalComunicacion canalComunicacion;
 
   @override
-  final String estado;
+  final String estado = 'activa';
 }
 
 class AutorizacionPermanente extends _AutorizacionBase {
@@ -74,17 +73,17 @@ class AutorizacionPermanente extends _AutorizacionBase {
     required int? horaFinMinutos,
     required CanalComunicacion canalComunicacion,
   }) : super(
-          usuarioId: usuarioId,
-          candadoKey: candadoKey,
-          dispositivoId: dispositivoId,
-          tipoAcceso: TipoAccesoPerfil.permanente,
-          fechaInicio: fechaInicio,
-          fechaFin: null,
-          diasPermitidos: diasPermitidos,
-          horaInicioMinutos: horaInicioMinutos,
-          horaFinMinutos: horaFinMinutos,
-          canalComunicacion: canalComunicacion,
-        );
+         usuarioId: usuarioId,
+         candadoKey: candadoKey,
+         dispositivoId: dispositivoId,
+         tipoAcceso: TipoAccesoPerfil.permanente,
+         fechaInicio: fechaInicio,
+         fechaFin: null,
+         diasPermitidos: diasPermitidos,
+         horaInicioMinutos: horaInicioMinutos,
+         horaFinMinutos: horaFinMinutos,
+         canalComunicacion: canalComunicacion,
+       );
 }
 
 class AutorizacionTemporal extends _AutorizacionBase {
@@ -99,17 +98,17 @@ class AutorizacionTemporal extends _AutorizacionBase {
     required int? horaFinMinutos,
     required CanalComunicacion canalComunicacion,
   }) : super(
-          usuarioId: usuarioId,
-          candadoKey: candadoKey,
-          dispositivoId: dispositivoId,
-          tipoAcceso: TipoAccesoPerfil.temporal,
-          fechaInicio: fechaInicio,
-          fechaFin: fechaFin,
-          diasPermitidos: diasPermitidos,
-          horaInicioMinutos: horaInicioMinutos,
-          horaFinMinutos: horaFinMinutos,
-          canalComunicacion: canalComunicacion,
-        );
+         usuarioId: usuarioId,
+         candadoKey: candadoKey,
+         dispositivoId: dispositivoId,
+         tipoAcceso: TipoAccesoPerfil.temporal,
+         fechaInicio: fechaInicio,
+         fechaFin: fechaFin,
+         diasPermitidos: diasPermitidos,
+         horaInicioMinutos: horaInicioMinutos,
+         horaFinMinutos: horaFinMinutos,
+         canalComunicacion: canalComunicacion,
+       );
 }
 
 class AutorizacionRecurrente extends _AutorizacionBase {
@@ -124,15 +123,15 @@ class AutorizacionRecurrente extends _AutorizacionBase {
     required int horaFinMinutos,
     required CanalComunicacion canalComunicacion,
   }) : super(
-          usuarioId: usuarioId,
-          candadoKey: candadoKey,
-          dispositivoId: dispositivoId,
-          tipoAcceso: TipoAccesoPerfil.recurrente,
-          fechaInicio: fechaInicio,
-          fechaFin: fechaFin,
-          diasPermitidos: diasPermitidos,
-          horaInicioMinutos: horaInicioMinutos,
-          horaFinMinutos: horaFinMinutos,
-          canalComunicacion: canalComunicacion,
-        );
+         usuarioId: usuarioId,
+         candadoKey: candadoKey,
+         dispositivoId: dispositivoId,
+         tipoAcceso: TipoAccesoPerfil.recurrente,
+         fechaInicio: fechaInicio,
+         fechaFin: fechaFin,
+         diasPermitidos: diasPermitidos,
+         horaInicioMinutos: horaInicioMinutos,
+         horaFinMinutos: horaFinMinutos,
+         canalComunicacion: canalComunicacion,
+       );
 }

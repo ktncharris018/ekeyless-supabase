@@ -107,6 +107,37 @@ class CandadoBLEService {
 
   Future<bool> verificarGPS() => _locationService.verificarGPS();
 
+  /// Fachada: agrupa todos los requisitos necesarios antes de buscar un
+  /// candado nuevo, para que el controlador no coordine cada servicio.
+  Future<void> prepararBluetoothParaVinculacion() async {
+    if (!await esBluetoothSoportado()) {
+      throw Exception('Bluetooth no es compatible con este dispositivo');
+    }
+
+    if (!await _bleGateway.solicitarPermisos()) {
+      throw Exception('Permisos necesarios no concedidos');
+    }
+
+    if (!await esBluetoothEncendido()) {
+      await encenderBluetooth();
+    }
+
+    if (!await _bleGateway.verificarGPS()) {
+      throw Exception('GPS debe estar activado');
+    }
+  }
+
+  /// Fachada: prepara Bluetooth para reconectar un candado ya registrado.
+  Future<void> prepararBluetoothParaControl() async {
+    if (!await _bleGateway.solicitarPermisos()) {
+      throw Exception('Permisos necesarios no concedidos');
+    }
+
+    if (!await esBluetoothEncendido()) {
+      await encenderBluetooth();
+    }
+  }
+
   Stream<List<BluetoothDevice>> escanearDispositivos({
     Duration timeout = const Duration(seconds: 4),
     String filtroNombre = 'lock',

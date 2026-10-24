@@ -43,6 +43,7 @@ class VistaControl extends StatelessWidget {
           child: Obx(() {
             final abierto = controller.esCandadoAbierto;
             final conectado = controller.conectado.value;
+            final simulado = controller.esCandadoSimuladoActivo;
 
             return Column(
               children: [
@@ -117,7 +118,9 @@ class VistaControl extends StatelessWidget {
                             children: [
                               Icon(
                                 conectado
-                                    ? Icons.bluetooth_connected
+                                    ? (simulado
+                                        ? Icons.memory
+                                        : Icons.bluetooth_connected)
                                     : Icons.bluetooth_disabled,
                                 size: 16,
                                 color:
@@ -127,7 +130,11 @@ class VistaControl extends StatelessWidget {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                conectado ? 'Conectado' : 'Desconectado',
+                                conectado
+                                    ? (simulado
+                                        ? 'Conectado · Simulación'
+                                        : 'Conectado')
+                                    : 'Desconectado',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w500,
                                   color:
@@ -215,10 +222,11 @@ class VistaControl extends StatelessWidget {
                           ),
                         ),
 
-                        if (candado.obtenerRolUsuario(
-                              controller.currentUser?.id ?? '',
-                            ) ==
-                            TipoUsuario.dueno) ...[
+                        if (!candado.esSimulado &&
+                            candado.obtenerRolUsuario(
+                                  controller.currentUser?.id ?? '',
+                                ) ==
+                                TipoUsuario.dueno) ...[
                           const SizedBox(width: 12),
                           Expanded(
                             child: ElevatedButton.icon(

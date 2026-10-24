@@ -47,7 +47,7 @@ class LoggingLockCommandChannelDecorator
   }) {
     developer.log(
       message,
-      name: 'eKeyLess.Bluetooth',
+      name: 'eKeyLess.LockCommandChannel',
       error: error,
       stackTrace: stackTrace,
     );

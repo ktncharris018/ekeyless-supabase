@@ -115,13 +115,25 @@ class VistaListaCandados extends StatelessWidget {
                     children: [
                       const SizedBox(height: 4),
                       Text(
-                        _obtenerTextoRol(rol),
+                        candado.esSimulado
+                            ? 'CANDADO SIMULADO'
+                            : _obtenerTextoRol(rol),
                         style: TextStyle(
                           color: _obtenerColorRol(rol),
                           fontWeight: FontWeight.w500,
                           fontSize: 12,
                         ),
                       ),
+                      if (candado.esSimulado) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          'Funciona sin candado físico ni Bluetooth',
+                          style: TextStyle(
+                            color: Colors.blueGrey[600],
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 2),
                       Text(
                         'Creado: ${DateFormat('dd/MM/yyyy').format(candado.fechaCreacion)}',
@@ -159,7 +171,7 @@ class VistaListaCandados extends StatelessWidget {
                               ],
                             ),
                           ),
-                          if (esDueno)
+                          if (esDueno && !candado.esSimulado)
                             const PopupMenuItem(
                               value: 'compartir',
                               child: Row(
@@ -170,6 +182,7 @@ class VistaListaCandados extends StatelessWidget {
                                 ],
                               ),
                             ),
+                          if (!candado.esSimulado)
                             const PopupMenuItem(
                               value: 'perfiles',
                               child: Row(

@@ -1,6 +1,9 @@
 import 'invitado_recurrente_model.dart';
 
 class CandadoModel {
+  static const String claveCandadoSimulado = 'DEMO-EKEYLESS-0001';
+  static const String nombreCandadoSimulado = 'Candado de demostración';
+
   final String key; // La key del candado
   final String nombre;
   final String dueno;
@@ -18,6 +21,9 @@ class CandadoModel {
     this.invitadosRecurrentes = const [],
     required this.fechaCreacion,
   });
+
+  /// Identifica el candado de demostración, que nunca se guarda en Supabase.
+  bool get esSimulado => key == claveCandadoSimulado;
 
   static DateTime _parseFecha(dynamic value) {
     if (value is String) return DateTime.tryParse(value) ?? DateTime.now();

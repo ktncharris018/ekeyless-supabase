@@ -1,4 +1,5 @@
 abstract class Prototype<T> {
+  const Prototype();
   String get prototypeKey;
 
   T clone();
@@ -6,7 +7,7 @@ abstract class Prototype<T> {
 
 class PrototypeStore<T extends Prototype<T>> {
   PrototypeStore([Iterable<T> prototypes = const []])
-      : prototypes = List<T>.from(prototypes);
+    : prototypes = List<T>.from(prototypes);
 
   final List<T> prototypes;
 
